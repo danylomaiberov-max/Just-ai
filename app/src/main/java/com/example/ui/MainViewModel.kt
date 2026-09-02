@@ -65,10 +65,13 @@ enum class StudioSubTab {
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: AppRepository
+    private val repository: AppRepository = AppRepository(AppDatabase.getDatabase(application))
 
     // Hardware Engine & Real-time Specs
     val hardwareSpecs: HardwareSpecs = DeviceHardwareEngine.getDeviceHardwareSpecs(application)
+
+    private val _inferenceConfig = MutableStateFlow(InferenceConfig())
+    val inferenceConfig: StateFlow<InferenceConfig> = _inferenceConfig.asStateFlow()
 
     private val _hardwareRealtimeStats = MutableStateFlow(
         DeviceHardwareEngine.getRealtimeStats(application, HardwareBackend.GPU_VULKAN)
@@ -84,35 +87,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isTensorTesting = MutableStateFlow(false)
     val isTensorTesting: StateFlow<Boolean> = _isTensorTesting.asStateFlow()
 
-    init {
-        val db = AppDatabase.getDatabase(application)
-        repository = AppRepository(db)
-        viewModelScope.launch {
-            repository.seedInitialDataIfEmpty()
-        }
-        viewModelScope.launch {
-            while (true) {
-                val currentBackend = _inferenceConfig.value.hardwareBackend
-                _hardwareRealtimeStats.value = DeviceHardwareEngine.getRealtimeStats(application, currentBackend)
-                delay(2500)
-            }
-        }
-    }
-
     // Active Navigation
     private val _currentTab = MutableStateFlow(AppTab.CHAT)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
     private val _studioSubTab = MutableStateFlow(StudioSubTab.PHOTO)
     val studioSubTab: StateFlow<StudioSubTab> = _studioSubTab.asStateFlow()
-
-    fun setTab(tab: AppTab) {
-        _currentTab.value = tab
-    }
-
-    fun setStudioSubTab(subTab: StudioSubTab) {
-        _studioSubTab.value = subTab
-    }
 
     // Data Flows from Repository
     val allSessions: StateFlow<List<ChatSessionEntity>> = repository.allSessions
@@ -129,7 +109,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val recentLogs: StateFlow<List<ServerLogEntity>> = repository.recentServerLogs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
 
     val serverStatus: StateFlow<ServerStatus> = AasServerManager.serverStatus
     val privacyTelemetry: StateFlow<PrivacyTelemetry> = PrivacyShieldManager.telemetry
@@ -155,9 +134,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var generationJob: Job? = null
 
-    // Inference Settings & Hyperparameters (PocketPal / Ollama)
-    private val _inferenceConfig = MutableStateFlow(InferenceConfig())
-    val inferenceConfig: StateFlow<InferenceConfig> = _inferenceConfig.asStateFlow()
+    init {
+        viewModelScope.launch {
+            repository.seedInitialDataIfEmpty()
+        }
+        viewModelScope.launch {
+            while (true) {
+                val currentBackend = _inferenceConfig.value.hardwareBackend
+                _hardwareRealtimeStats.value = DeviceHardwareEngine.getRealtimeStats(application, currentBackend)
+                delay(2500)
+            }
+        }
+    }
+
+    fun setTab(tab: AppTab) {
+        _currentTab.value = tab
+    }
+
+    fun setStudioSubTab(subTab: StudioSubTab) {
+        _studioSubTab.value = subTab
+    }
 
     fun updateInferenceConfig(config: InferenceConfig) {
         _inferenceConfig.value = config
