@@ -1,0 +1,7 @@
+{
+  "name": "Aether AI: Local LLM & Studio",
+  "description": "Local LLM runner, AI-as-a-Service (Ollama API), multi-modal generator, HuggingFace downloader, Vector DB RAG, code sandbox, and offline privacy shield.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
