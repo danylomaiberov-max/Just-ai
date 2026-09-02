@@ -38,7 +38,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            AetherAITheme {
+            val themeMode by viewModel.themeMode.collectAsState()
+            AetherAITheme(themeMode = themeMode) {
                 AetherApp(viewModel = viewModel)
             }
         }
@@ -47,6 +48,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AetherApp(viewModel: MainViewModel) {
+    val themeMode by viewModel.themeMode.collectAsState()
+    val promptTemplates by viewModel.promptTemplates.collectAsState()
+    val activeTemplate by viewModel.activeTemplate.collectAsState()
+
     val currentTab by viewModel.currentTab.collectAsState()
     val studioSubTab by viewModel.studioSubTab.collectAsState()
 
@@ -135,7 +140,10 @@ fun AetherApp(viewModel: MainViewModel) {
                             onClearChat = { viewModel.startNewChat("Fresh Session") },
                             onImportLocalModel = { fileName, fileSize, filePath ->
                                 viewModel.importLocalModel(fileName, fileSize, filePath)
-                            }
+                            },
+                            promptTemplates = promptTemplates,
+                            activeTemplate = activeTemplate,
+                            onSelectTemplate = { viewModel.applyPromptTemplate(it) }
                         )
                     }
 
@@ -253,6 +261,17 @@ fun AetherApp(viewModel: MainViewModel) {
                             inferenceConfig = inferenceConfig,
                             engineMode = engineMode,
                             ollamaHost = ollamaHost,
+                            themeMode = themeMode,
+                            onSelectThemeMode = { viewModel.setThemeMode(it) },
+                            promptTemplates = promptTemplates,
+                            activeTemplate = activeTemplate,
+                            onApplyTemplate = { viewModel.applyPromptTemplate(it) },
+                            onCreateTemplate = { name, desc, sysPrompt, temp, topP, ctx, cat ->
+                                viewModel.createPromptTemplate(name, desc, sysPrompt, temp, topP, ctx, cat)
+                            },
+                            onDeleteTemplate = { viewModel.deletePromptTemplate(it) },
+                            onExportTemplates = { viewModel.exportPromptTemplatesJson() },
+                            onImportTemplates = { viewModel.importPromptTemplatesJson(it) },
                             onSelectEngineMode = { viewModel.setRuntimeEngineMode(it) },
                             onUpdateOllamaHost = { viewModel.setOllamaHost(it) },
                             onToggleOfflineMode = { enable -> viewModel.toggleOfflineMode(enable) },

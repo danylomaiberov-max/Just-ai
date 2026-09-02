@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.database.AiModelEntity
 import com.example.data.database.ChatMessageEntity
+import com.example.data.templates.PromptTemplate
 import com.example.plugins.PluginSystem
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.CrimsonNeon
@@ -107,6 +108,9 @@ fun ChatScreen(
     onNewChat: () -> Unit,
     onClearChat: () -> Unit,
     onImportLocalModel: (String, Long, String) -> Unit = { _, _, _ -> },
+    promptTemplates: List<PromptTemplate> = emptyList(),
+    activeTemplate: PromptTemplate? = null,
+    onSelectTemplate: (PromptTemplate) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -116,6 +120,7 @@ fun ChatScreen(
     }
     var selectedPluginId by remember { mutableStateOf<String?>(null) }
     var modelDropdownExpanded by remember { mutableStateOf(false) }
+    var templateDropdownExpanded by remember { mutableStateOf(false) }
     var isThoughtExpanded by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
@@ -172,85 +177,158 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Model Selector Pill
-            Box {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(DarkSurface2)
-                        .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                        .clickable { modelDropdownExpanded = true }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("chat_model_selector"),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+            // Left: Model & Template Selectors
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Model Selector Pill
+                Box {
+                    Row(
                         modifier = Modifier
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(CrimsonNeon)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ExpandMore,
-                        contentDescription = "Выбрать модель",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = modelDropdownExpanded,
-                    onDismissRequest = { modelDropdownExpanded = false },
-                    modifier = Modifier.background(DarkSurface2)
-                ) {
-                    models.forEach { model ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        text = model.name,
-                                        color = if (model.id == selectedModelId) CrimsonNeon else TextPrimary,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = "${model.architecture} • ${model.quantization} • ${model.fileSizeMb} МБ",
-                                        color = TextSecondary,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            },
-                            onClick = {
-                                selectedModelId = model.id
-                                modelDropdownExpanded = false
-                            }
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(DarkSurface2)
+                            .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                            .clickable { modelDropdownExpanded = true }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("chat_model_selector"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(CrimsonNeon)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ExpandMore,
+                            contentDescription = "Выбрать модель",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
-                    // Direct file import action in dropdown
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("+ Загрузить модель из файла...", color = CrimsonNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    Text("Файлы .gguf, .bin, .safetensors с памяти", color = TextSecondary, fontSize = 10.sp)
+                    DropdownMenu(
+                        expanded = modelDropdownExpanded,
+                        onDismissRequest = { modelDropdownExpanded = false },
+                        modifier = Modifier.background(DarkSurface2)
+                    ) {
+                        models.forEach { model ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            text = model.name,
+                                            color = if (model.id == selectedModelId) CrimsonNeon else TextPrimary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "${model.architecture} • ${model.quantization} • ${model.fileSizeMb} МБ",
+                                            color = TextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedModelId = model.id
+                                    modelDropdownExpanded = false
                                 }
-                            }
-                        },
-                        onClick = {
-                            modelDropdownExpanded = false
-                            filePickerLauncher.launch("*/*")
+                            )
                         }
-                    )
+
+                        // Direct file import action in dropdown
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.FolderOpen, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text("+ Загрузить модель из файла...", color = CrimsonNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Файлы .gguf, .bin, .safetensors с памяти", color = TextSecondary, fontSize = 10.sp)
+                                    }
+                                }
+                            },
+                            onClick = {
+                                modelDropdownExpanded = false
+                                filePickerLauncher.launch("*/*")
+                            }
+                        )
+                    }
+                }
+
+                // Template / Persona Pill
+                if (promptTemplates.isNotEmpty()) {
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(DarkSurface2)
+                                .border(1.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                                .clickable { templateDropdownExpanded = true }
+                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                .testTag("chat_template_selector"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(PurpleNeon)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = activeTemplate?.name?.take(12) ?: "Шаблон",
+                                color = TextPrimary,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ExpandMore,
+                                contentDescription = "Выбрать шаблон",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = templateDropdownExpanded,
+                            onDismissRequest = { templateDropdownExpanded = false },
+                            modifier = Modifier.background(DarkSurface2)
+                        ) {
+                            promptTemplates.forEach { tpl ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                text = tpl.name,
+                                                color = if (tpl.id == activeTemplate?.id) PurpleNeon else TextPrimary,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 12.sp
+                                            )
+                                            Text(
+                                                text = "${tpl.category} • T: ${tpl.temperature}",
+                                                color = TextSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        onSelectTemplate(tpl)
+                                        templateDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

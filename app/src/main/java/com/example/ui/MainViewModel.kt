@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ai.engine.AiRuntimeEngineMode
@@ -24,6 +25,8 @@ import com.example.data.database.CodeSnippetEntity
 import com.example.data.database.ServerLogEntity
 import com.example.data.database.VectorCollectionEntity
 import com.example.data.repository.AppRepository
+import com.example.data.templates.PromptTemplate
+import com.example.data.templates.PromptTemplateManager
 import com.example.hardware.DeviceHardwareEngine
 import com.example.hardware.HardwareBackend
 import com.example.hardware.HardwareBenchmarkResult
@@ -38,6 +41,7 @@ import com.example.privacy.PrivacyShieldManager
 import com.example.privacy.PrivacyTelemetry
 import com.example.server.AasServerManager
 import com.example.server.ServerStatus
+import com.example.ui.theme.AppThemeMode
 import com.example.vectordb.SearchResult
 import com.example.vectordb.VectorDatabaseEngine
 import kotlinx.coroutines.Job
@@ -73,6 +77,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Hardware Engine & Real-time Specs
     val hardwareSpecs: HardwareSpecs = DeviceHardwareEngine.getDeviceHardwareSpecs(application)
+
+    // App Preferences, Customization Theme & PocketPal Settings
+    private val appPrefs = application.getSharedPreferences("aether_app_prefs", Context.MODE_PRIVATE)
+    private val _themeMode = MutableStateFlow(
+        AppThemeMode.fromId(appPrefs.getString("app_theme_mode", AppThemeMode.CRIMSON_NEON.id) ?: AppThemeMode.CRIMSON_NEON.id)
+    )
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: AppThemeMode) {
+        _themeMode.value = mode
+        appPrefs.edit().putString("app_theme_mode", mode.id).apply()
+    }
+
+    // Prompt Templates (PocketPal Compatible)
+    private val _promptTemplates = MutableStateFlow<List<PromptTemplate>>(emptyList())
+    val promptTemplates: StateFlow<List<PromptTemplate>> = _promptTemplates.asStateFlow()
+
+    private val _activeTemplate = MutableStateFlow<PromptTemplate?>(null)
+    val activeTemplate: StateFlow<PromptTemplate?> = _activeTemplate.asStateFlow()
 
     private val _inferenceConfig = MutableStateFlow(InferenceConfig())
     val inferenceConfig: StateFlow<InferenceConfig> = _inferenceConfig.asStateFlow()
@@ -142,6 +165,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
         }
+
+        // Initialize PocketPal-compatible Prompt Templates
+        val templates = PromptTemplateManager.loadAllTemplates(application)
+        _promptTemplates.value = templates
+        val activeId = PromptTemplateManager.getActiveTemplateId(application)
+        val active = templates.find { it.id == activeId } ?: templates.firstOrNull()
+        _activeTemplate.value = active
+        if (active != null) {
+            _inferenceConfig.value = _inferenceConfig.value.copy(
+                systemPrompt = active.systemPrompt,
+                temperature = active.temperature,
+                topP = active.topP,
+                contextWindow = active.contextWindow
+            )
+        }
+
         viewModelScope.launch {
             while (true) {
                 val currentBackend = _inferenceConfig.value.hardwareBackend
@@ -649,6 +688,83 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _audioGenResult.value = null
             _translateResult.value = null
             _ragSearchResults.value = null ?: emptyList()
+        }
+    }
+
+    // Prompt Template Actions (PocketPal Compatible)
+    fun applyPromptTemplate(template: PromptTemplate) {
+        _activeTemplate.value = template
+        PromptTemplateManager.setActiveTemplateId(getApplication(), template.id)
+        _inferenceConfig.value = _inferenceConfig.value.copy(
+            systemPrompt = template.systemPrompt,
+            temperature = template.temperature,
+            topP = template.topP,
+            contextWindow = template.contextWindow
+        )
+    }
+
+    fun createPromptTemplate(
+        name: String,
+        description: String,
+        systemPrompt: String,
+        temperature: Float = 0.7f,
+        topP: Float = 0.9f,
+        contextWindow: Int = 4096,
+        category: String = "Кастомные"
+    ) {
+        val newTemplate = PromptTemplate(
+            id = "custom_" + System.currentTimeMillis(),
+            name = name,
+            description = description,
+            systemPrompt = systemPrompt,
+            temperature = temperature,
+            topP = topP,
+            contextWindow = contextWindow,
+            category = category,
+            isCustom = true
+        )
+        val updated = _promptTemplates.value + newTemplate
+        _promptTemplates.value = updated
+        PromptTemplateManager.saveCustomTemplates(getApplication(), updated)
+        applyPromptTemplate(newTemplate)
+    }
+
+    fun deletePromptTemplate(templateId: String) {
+        val updated = _promptTemplates.value.filterNot { it.id == templateId }
+        _promptTemplates.value = updated
+        PromptTemplateManager.saveCustomTemplates(getApplication(), updated)
+        if (_activeTemplate.value?.id == templateId) {
+            val fallback = updated.firstOrNull()
+            if (fallback != null) {
+                applyPromptTemplate(fallback)
+            }
+        }
+    }
+
+    fun exportPromptTemplatesJson(): String {
+        return PromptTemplateManager.exportToJson(_promptTemplates.value)
+    }
+
+    fun importPromptTemplatesJson(jsonStr: String): Pair<Boolean, String> {
+        return try {
+            val imported = PromptTemplateManager.importFromJson(jsonStr)
+            if (imported.isEmpty()) {
+                Pair(false, "В JSON не найдено подходящих шаблонов.")
+            } else {
+                val current = _promptTemplates.value.toMutableList()
+                imported.forEach { imp ->
+                    current.removeAll { it.name.equals(imp.name, ignoreCase = true) }
+                    current.add(imp)
+                }
+                _promptTemplates.value = current
+                PromptTemplateManager.saveCustomTemplates(getApplication(), current)
+                if (imported.isNotEmpty()) {
+                    applyPromptTemplate(imported.first())
+                }
+                Pair(true, "Успешно импортировано ${imported.size} шаблонов!")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Ошибка парсинга JSON: ${e.message}")
         }
     }
 }
