@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,3 +51,15 @@ jobs:
         name: Aether-AI-Debug-APK
         path: app/build/outputs/apk/debug/*.apk
         if-no-files-found: error
+
+    - name: Create or Update GitHub Release
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: latest-build
+        name: "Aether AI - Latest APK"
+        body: "Свежая сборка APK с поддержкой загрузки локальных моделей нейросетей (.gguf)."
+        files: app/build/outputs/apk/debug/*.apk
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
