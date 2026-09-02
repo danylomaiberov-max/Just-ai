@@ -3,9 +3,12 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.engine.AiRuntimeEngineMode
 import com.example.ai.engine.GenerationMetrics
 import com.example.ai.engine.InferenceConfig
 import com.example.ai.engine.LocalAiEngine
+import com.example.ai.engine.OllamaEngineBridge
+import com.example.ai.engine.OllamaPullProgress
 import com.example.ai.multimodal.AudioSynthesisResult
 import com.example.ai.multimodal.ImageGenerationResult
 import com.example.ai.multimodal.MultiModalStudioEngine
@@ -28,6 +31,7 @@ import com.example.hardware.HardwareRealtimeStats
 import com.example.hardware.HardwareSpecs
 import com.example.hardware.HardwareStressTestProgress
 import com.example.models.HuggingFaceModelCard
+import com.example.models.ModelDownloadProgress
 import com.example.models.ModelManager
 import com.example.plugins.PluginSystem
 import com.example.privacy.PrivacyShieldManager
@@ -380,19 +384,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Model Management States
-    private val _downloadingModels = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val downloadingModels: StateFlow<Map<String, Int>> = _downloadingModels.asStateFlow()
+    // Model Management States & Runtime Architecture (PocketPal vs Ollama)
+    private val _aiRuntimeEngineMode = MutableStateFlow(AiRuntimeEngineMode.POCKET_PAL_STANDALONE)
+    val aiRuntimeEngineMode: StateFlow<AiRuntimeEngineMode> = _aiRuntimeEngineMode.asStateFlow()
+
+    private val _ollamaHost = MutableStateFlow("http://127.0.0.1:11434")
+    val ollamaHost: StateFlow<String> = _ollamaHost.asStateFlow()
+
+    private val _downloadingModels = MutableStateFlow<Map<String, ModelDownloadProgress>>(emptyMap())
+    val downloadingModels: StateFlow<Map<String, ModelDownloadProgress>> = _downloadingModels.asStateFlow()
+
+    fun setRuntimeEngineMode(mode: AiRuntimeEngineMode) {
+        _aiRuntimeEngineMode.value = mode
+    }
+
+    fun setOllamaHost(host: String) {
+        _ollamaHost.value = host
+    }
 
     fun downloadHuggingFaceModel(card: HuggingFaceModelCard, quantization: String) {
         val modelEntity = ModelManager.convertHuggingFaceToEntity(card, quantization, isDownloaded = false)
         viewModelScope.launch {
             repository.insertModel(modelEntity)
-            _downloadingModels.value = _downloadingModels.value + (modelEntity.id to 0)
 
             ModelManager.downloadModelSimulation(card, quantization).collect { progress ->
                 _downloadingModels.value = _downloadingModels.value + (modelEntity.id to progress)
-                if (progress >= 100) {
+                if (progress.isComplete || progress.progressPercent >= 100) {
                     repository.updateModel(
                         modelEntity.copy(
                             isDownloaded = true,
@@ -400,7 +417,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             filePath = "/data/user/0/models/${modelEntity.id}.gguf"
                         )
                     )
+                    delay(500)
                     _downloadingModels.value = _downloadingModels.value - modelEntity.id
+                }
+            }
+        }
+    }
+
+    fun pullOllamaModel(modelTag: String) {
+        val cleanTag = modelTag.trim()
+        val modelId = "ollama-" + cleanTag.replace(":", "-").replace("/", "-")
+        val isDiffusion = cleanTag.contains("sd", ignoreCase = true) || cleanTag.contains("flux", ignoreCase = true)
+        val defaultSizeBytes = when {
+            cleanTag.contains("7b", true) -> 4300L * 1024 * 1024
+            cleanTag.contains("3b", true) || cleanTag.contains("3.8b", true) -> 2100L * 1024 * 1024
+            cleanTag.contains("1.5b", true) -> 1200L * 1024 * 1024
+            else -> 1800L * 1024 * 1024
+        }
+        val entity = AiModelEntity(
+            id = modelId,
+            name = cleanTag,
+            architecture = if (isDiffusion) "Diffusion" else "Ollama / GGUF",
+            parameterSize = if (cleanTag.contains("7b", true)) "7B" else "3B",
+            quantization = "Q4_K_M",
+            fileSizeMb = defaultSizeBytes / (1024 * 1024),
+            filePath = "/data/user/0/models/$modelId.gguf",
+            source = "OLLAMA_REGISTRY",
+            hfRepoId = cleanTag,
+            contextWindow = 8192,
+            isDownloaded = false,
+            downloadProgress = 0,
+            isLoadedInRam = false,
+            gpuOffloadLayers = 28,
+            memoryUsageMb = ((defaultSizeBytes / (1024 * 1024)) * 1.08).toInt(),
+            description = "Модель из реестра Ollama: $cleanTag (поддержка нативного GGUF и Ollama API)"
+        )
+
+        viewModelScope.launch {
+            repository.insertModel(entity)
+            OllamaEngineBridge.pullModelStream(cleanTag, defaultSizeBytes).collect { pullProgress ->
+                val progress = ModelDownloadProgress(
+                    modelId = modelId,
+                    progressPercent = pullProgress.percent,
+                    downloadedMb = pullProgress.completedMb,
+                    totalSizeMb = pullProgress.totalMb,
+                    writeSpeedMbps = pullProgress.speedMbps,
+                    etaSeconds = pullProgress.etaSeconds,
+                    statusPhase = pullProgress.status,
+                    isComplete = pullProgress.percent >= 100
+                )
+                _downloadingModels.value = _downloadingModels.value + (modelId to progress)
+
+                if (pullProgress.percent >= 100) {
+                    repository.updateModel(
+                        entity.copy(
+                            isDownloaded = true,
+                            downloadProgress = 100
+                        )
+                    )
+                    delay(500)
+                    _downloadingModels.value = _downloadingModels.value - modelId
                 }
             }
         }
@@ -410,6 +486,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val entity = ModelManager.createLocalImportedModel(fileName, fileSizeMb, filePath)
             repository.insertModel(entity)
+            repository.loadModelToRam(entity.id)
         }
     }
 

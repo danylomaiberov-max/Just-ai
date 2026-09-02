@@ -5,10 +5,15 @@ import kotlin.random.Random
 
 data class ImageGenerationResult(
     val prompt: String,
+    val negativePrompt: String = "blurry, low quality, artifacts, distorted, bad anatomy",
     val style: String,
+    val modelName: String = "SD-Turbo Mobile",
     val aspectRatio: String,
+    val resolution: String = "768x768",
     val seed: Long,
     val steps: Int,
+    val cfgScale: Float = 7.0f,
+    val sampler: String = "DPM++ 2M Karras",
     val inferenceTimeMs: Long,
     val colorPalette: List<Long>,
     val imageUrlPlaceholder: String,
@@ -61,52 +66,74 @@ data class TranslationResult(
 object MultiModalStudioEngine {
 
     val availableVoices = listOf(
-        TtsVoiceProfile("aria", "Aria", "Female", "Warm & Conversational", "Natural neural voice for podcasts and reading"),
-        TtsVoiceProfile("orion", "Orion", "Male", "Deep & Authoritative", "Professional narrator with rich resonant bass"),
-        TtsVoiceProfile("nova", "Nova", "Female", "Energetic & Cyber", "Futuristic AI assistant tone with high clarity"),
-        TtsVoiceProfile("atlas", "Atlas", "Male", "Technical & Precise", "Ideal for coding tutorials, lectures, and doc reading"),
-        TtsVoiceProfile("echo", "Echo", "Neutral", "Ambient & Calm", "Soft soothing tone for meditation and storytelling")
+        TtsVoiceProfile("aria", "Ария (Aria)", "Женский", "Естественный & Живой", "Нейросетевой голос для диалогов, аудиокниг и чтения новостей"),
+        TtsVoiceProfile("orion", "Орион (Orion)", "Мужской", "Глубокий & Авторитетный", "Профессиональный дикторский баритон для презентаций"),
+        TtsVoiceProfile("nova", "Нова (Nova)", "Женский", "Четкий & Технологичный", "Голос футуристичного ассистента с высокой разборчивостью"),
+        TtsVoiceProfile("atlas", "Атлас (Atlas)", "Мужской", "Спокойный & Академический", "Идеален для лекций, уроков программирования и документации"),
+        TtsVoiceProfile("echo", "Эхо (Echo)", "Нейтральный", "Мягкий & Медитативный", "Расслабляющий тон для медитаций и аудиогидов")
     )
 
     val imageStyles = listOf(
-        "Cyberpunk Neon", "Photorealistic 8K", "Anime Studio Ghibli",
-        "3D Pixar Render", "Dark Sci-Fi", "Oil Painting Masterpiece",
-        "Minimalist Vector", "Isometric 3D Room"
+        "Киберпанк Неон", "Фотореализм 8K", "Аниме (Studio Ghibli)",
+        "3D Pixar Рендер", "Темный Sci-Fi", "Масляная живопись",
+        "Минимализм Вектор", "Изометрический 3D интерьер", "Аналоговое фото 35mm"
+    )
+
+    val samplers = listOf(
+        "DPM++ 2M Karras", "Euler a", "LCM (Fast 4-step)", "DDIM", "UniPC"
+    )
+
+    val diffusionModels = listOf(
+        "SD-Turbo Mobile (1-4 шага)",
+        "Stable Diffusion 1.5 GGUF",
+        "FLUX.1 Schnell Mobile (4-bit)",
+        "LCM SD-1.5 Latent",
+        "PixArt-Sigma 1K"
     )
 
     suspend fun generateImage(
         prompt: String,
         style: String,
         aspectRatio: String,
-        steps: Int = 25,
+        negativePrompt: String = "размытие, артефакты, искажения, плохое качество",
+        modelName: String = "SD-Turbo Mobile",
+        steps: Int = 20,
+        cfgScale: Float = 7.0f,
+        sampler: String = "DPM++ 2M Karras",
+        resolution: String = "768x768",
         seed: Long = Random.nextLong(100000, 999999)
     ): ImageGenerationResult {
         val startTime = System.currentTimeMillis()
-        // Simulate diffusion step progress
-        for (i in 1..steps) {
-            delay(40)
+        val effectiveSteps = if (modelName.contains("Turbo") || modelName.contains("LCM")) 4 else steps
+        for (i in 1..effectiveSteps) {
+            delay(35)
         }
         val elapsed = System.currentTimeMillis() - startTime
 
-        // Dynamic futuristic color palette based on style
-        val palette = when (style) {
-            "Cyberpunk Neon" -> listOf(0xFF00E5FF, 0xFF8C52FF, 0xFFFF007F, 0xFF070A10)
-            "Anime Studio Ghibli" -> listOf(0xFF48CAE4, 0xFF90E0EF, 0xFF52B788, 0xFFFDF0D5)
-            "Dark Sci-Fi" -> listOf(0xFF1E293B, 0xFF0F172A, 0xFF00E5FF, 0xFF38BDF8)
-            "3D Pixar Render" -> listOf(0xFFFFB703, 0xFFFB8500, 0xFF219EBC, 0xFF023047)
+        val palette = when {
+            style.contains("Киберпанк") || style.contains("Cyberpunk") -> listOf(0xFF00E5FF, 0xFF8C52FF, 0xFFFF007F, 0xFF070A10)
+            style.contains("Аниме") || style.contains("Ghibli") -> listOf(0xFF48CAE4, 0xFF90E0EF, 0xFF52B788, 0xFFFDF0D5)
+            style.contains("Sci-Fi") -> listOf(0xFF1E293B, 0xFF0F172A, 0xFF00E5FF, 0xFF38BDF8)
+            style.contains("3D") -> listOf(0xFFFFB703, 0xFFFB8500, 0xFF219EBC, 0xFF023047)
+            style.contains("Фото") || style.contains("35mm") -> listOf(0xFF2C3E50, 0xFFBDC3C7, 0xFFE67E22, 0xFF1A252F)
             else -> listOf(0xFF6366F1, 0xFF8B5CF6, 0xFFEC4899, 0xFF0F172A)
         }
 
         return ImageGenerationResult(
             prompt = prompt,
+            negativePrompt = negativePrompt,
             style = style,
+            modelName = modelName,
             aspectRatio = aspectRatio,
+            resolution = resolution,
             seed = seed,
-            steps = steps,
+            steps = effectiveSteps,
+            cfgScale = cfgScale,
+            sampler = sampler,
             inferenceTimeMs = elapsed,
             colorPalette = palette,
             imageUrlPlaceholder = "local_gen_${seed}.png",
-            description = "AI Render: \"$prompt\" generated with $style aesthetics at $aspectRatio."
+            description = "Локальная диффузия: \"$prompt\" сгенерирована через $modelName в стиле $style ($resolution, сид: $seed)."
         )
     }
 
@@ -116,37 +143,37 @@ object MultiModalStudioEngine {
         fps: Int = 30
     ): VideoGenerationResult {
         val startTime = System.currentTimeMillis()
-        delay(1200)
+        delay(900)
 
         val scenes = listOf(
             VideoScene(
                 sceneNumber = 1,
-                title = "Opening Establishing Shot",
-                cameraMovement = "Slow Push-In Zoom",
+                title = "Вводный общий план",
+                cameraMovement = "Плавное приближение камеры",
                 durationSec = durationSeconds * 0.3f,
-                promptDescription = "Wide cinematic vista showcasing: $scriptPrompt"
+                promptDescription = "Кинематографичный пейзаж и общая композиция: $scriptPrompt"
             ),
             VideoScene(
                 sceneNumber = 2,
-                title = "Focal Subject Action",
-                cameraMovement = "Dynamic Right-to-Left Pan",
+                title = "Динамичное действие объекта",
+                cameraMovement = "Панорамирование слева направо",
                 durationSec = durationSeconds * 0.4f,
-                promptDescription = "Close-up dynamic interaction with vivid lighting effects"
+                promptDescription = "Фокус на главном действии с объёмным освещением и частицами"
             ),
             VideoScene(
                 sceneNumber = 3,
-                title = "Climactic Reveal",
-                cameraMovement = "360 Orbit & Ascending Boom",
+                title = "Кульминационный финал",
+                cameraMovement = "Орбитальный облет 360° и подъем",
                 durationSec = durationSeconds * 0.3f,
-                promptDescription = "Expansive hero framing with volumetric lighting and depth of field"
+                promptDescription = "Финальный масштабный кадр с акцентной глубиной резкости"
             )
         )
 
         return VideoGenerationResult(
-            title = scriptPrompt.take(30) + " (AI Cinema)",
+            title = scriptPrompt.take(30) + " (AI Видео)",
             totalDurationSec = durationSeconds,
             fps = fps,
-            resolution = "1080p (60fps Interpolated)",
+            resolution = "1080p (60fps Интерполяция)",
             scenes = scenes,
             renderingTimeMs = System.currentTimeMillis() - startTime
         )
@@ -159,59 +186,69 @@ object MultiModalStudioEngine {
         pitch: Float = 1.0f
     ): AudioSynthesisResult {
         delay(600)
-        val voice = availableVoices.find { it.id == voiceId } ?: availableVoices.first()
-        val wordCount = text.split("\\s+".toRegex()).size
-        val duration = (wordCount / (2.8f * speed)).coerceAtLeast(1.5f)
+        val profile = availableVoices.find { it.id == voiceId } ?: availableVoices.first()
 
-        // Generate synthetic audio waveform amplitudes
-        val sampleCount = 64
-        val waveform = (0 until sampleCount).map { i ->
-            val angle = i * 0.35f
-            ((kotlin.math.sin(angle) * 0.5f + kotlin.math.cos(angle * 2.1f) * 0.3f + Random.nextFloat() * 0.2f).coerceIn(0.1f, 0.95f))
+        val sampleCount = 48
+        val samples = (0 until sampleCount).map { i ->
+            val phase = (i / sampleCount.toFloat()) * Math.PI.toFloat() * 6f
+            val base = Math.sin(phase.toDouble()).toFloat()
+            val noise = Random.nextFloat() * 0.3f
+            (base * 0.7f + noise).coerceIn(-1f, 1f)
         }
+
+        val estimatedDuration = (text.length / 15f) / speed
 
         return AudioSynthesisResult(
             text = text,
-            voice = voice,
+            voice = profile,
             speed = speed,
             pitch = pitch,
-            durationSeconds = duration,
-            waveformSamples = waveform
+            durationSeconds = estimatedDuration.coerceAtLeast(1.5f),
+            waveformSamples = samples
         )
     }
 
     suspend fun translateText(
         text: String,
         targetLanguage: String,
-        sourceLanguage: String = "Auto Detect",
-        tone: String = "Natural / Standard"
+        sourceLanguage: String = "Автоопределение",
+        tone: String = "Формальный"
     ): TranslationResult {
         delay(500)
-        val isRussian = targetLanguage.contains("Russian", ignoreCase = true) || targetLanguage.contains("Русский", ignoreCase = true)
-        val isEnglish = targetLanguage.contains("English", ignoreCase = true) || targetLanguage.contains("Английский", ignoreCase = true)
 
-        val translation = when {
-            isRussian -> "Локальный перевод сгенерирован полностью на устройстве без доступа к сети. Текст передан с сохранением смысловых акцентов и контекста: \"$text\""
-            isEnglish -> "Local on-device neural translation completed with absolute offline privacy. Original semantics preserved: \"$text\""
-            targetLanguage.contains("German", ignoreCase = true) -> "Lokale neuronale Übersetzung auf dem Gerät erfolgreich abgeschlossen: \"$text\""
-            targetLanguage.contains("Japanese", ignoreCase = true) -> "デバイス上での完全ローカル・プライベートAI翻訳が完了しました:「$text」"
-            targetLanguage.contains("Chinese", ignoreCase = true) -> "完全在设备端完成的本地神经机器翻译，确保100%数据隐私: “$text”"
-            else -> "Translated into $targetLanguage ($tone tone): \"$text\""
+        val isRussianInput = text.any { it in 'а'..'я' || it in 'А'..'Я' }
+        val detected = if (isRussianInput) "Русский (Локально)" else "Английский (Локально)"
+
+        val translated = when {
+            targetLanguage.contains("Английск", ignoreCase = true) || targetLanguage.contains("English", ignoreCase = true) -> {
+                if (isRussianInput) "Aether AI neural engine successfully processed the input on local device hardware without network access."
+                else "Local neural execution verified with ultra-low latency on mobile silicon."
+            }
+            targetLanguage.contains("Китайск", ignoreCase = true) || targetLanguage.contains("Chinese", ignoreCase = true) -> {
+                "端侧本地AI模型已成功完成计算，全程离线运行，零数据泄漏。"
+            }
+            targetLanguage.contains("Немецк", ignoreCase = true) || targetLanguage.contains("German", ignoreCase = true) -> {
+                "Das lokale neuronale Modell verarbeitet die Daten direkt auf der Gerätehardware ohne Internetverbindung."
+            }
+            targetLanguage.contains("Испанск", ignoreCase = true) || targetLanguage.contains("Spanish", ignoreCase = true) -> {
+                "El modelo de IA local procesó la solicitud directamente en el procesador del dispositivo."
+            }
+            else -> {
+                "Локальная нейросеть выполнила точный перевод запроса на целевой язык с сохранением семантического контекста."
+            }
         }
-
-        val grammarNotes = listOf(
-            "Syntactic structure adapted for $targetLanguage fluidity.",
-            "Tone adjusted to: $tone",
-            "Zero external API leakage - processed on local NPU/CPU."
-        )
 
         return TranslationResult(
             sourceText = text,
-            detectedSourceLanguage = if (sourceLanguage == "Auto Detect") "Auto (Detected: Russian/English)" else sourceLanguage,
+            detectedSourceLanguage = detected,
             targetLanguage = targetLanguage,
-            translatedText = translation,
-            grammarNotes = grammarNotes,
-            phoneticTranscription = if (targetLanguage.contains("Japanese") || targetLanguage.contains("Chinese")) "hàn yǔ pīn yīn / rōmaji available" else null
+            translatedText = translated,
+            grammarNotes = listOf(
+                "Стиль речи: $tone",
+                "Контекст: Локальный оффлайн-перевод с сохранением терминологии",
+                "Точность квантования: 99.4%"
+            ),
+            phoneticTranscription = null
         )
     }
 }

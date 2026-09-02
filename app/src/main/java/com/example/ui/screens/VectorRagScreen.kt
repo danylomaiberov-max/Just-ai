@@ -71,7 +71,7 @@ fun VectorRagScreen(
     onTestSearch: (String, Long?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var searchQuery by remember { mutableStateOf("Local LLM architecture and quantization") }
+    var searchQuery by remember { mutableStateOf("Квантование GGUF и локальная архитектура") }
     var newDocTitle by remember { mutableStateOf("") }
     var newDocContent by remember { mutableStateOf("") }
     var selectedCollectionId by remember { mutableStateOf<Long?>(collections.firstOrNull()?.id) }
@@ -101,29 +101,14 @@ fun VectorRagScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.FindInPage, contentDescription = null, tint = CyanNeon, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Local Vector Database & RAG", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                onCreateCollection(
-                                    "Project Docs #${collections.size + 1}",
-                                    "Local knowledge base with dense semantic vectors"
-                                )
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = CyanNeon, contentColor = DarkVoid),
-                            shape = RoundedCornerShape(6.dp),
-                            modifier = Modifier.height(30.dp)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("New Base", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("Локальная векторная база (RAG)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
+
                     Text(
-                        text = "Indexes documents on-device with 64-dim dense embeddings for context augmentation.",
+                        "Семантический поиск и долгосрочная память LLM. Документы разбиваются на чанки и векторизуются прямо на устройстве.",
                         color = TextSecondary,
                         fontSize = 11.sp
                     )
@@ -131,192 +116,198 @@ fun VectorRagScreen(
             }
         }
 
-        // Knowledge Base Collections
-        item {
-            Text("Knowledge Base Collections (${collections.size}):", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(6.dp))
-
-            if (collections.isEmpty()) {
-                Text("No collections created yet. Tap '+ New Base' to begin indexing.", color = TextMuted, fontSize = 11.sp)
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    collections.forEach { col ->
-                        val isSelected = col.id == selectedCollectionId
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) PurpleNeon.copy(alpha = 0.2f) else DarkSurface2)
-                                .border(1.dp, if (isSelected) PurpleNeon else DarkBorder, RoundedCornerShape(8.dp))
-                                .clickable { selectedCollectionId = col.id }
-                                .padding(10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Book, contentDescription = null, tint = if (isSelected) PurpleNeon else TextSecondary, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(col.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    Text(col.description, color = TextSecondary, fontSize = 10.sp)
-                                }
-                            }
-
-                            Row {
-                                IconButton(onClick = { onDeleteCollection(col.id) }, modifier = Modifier.size(28.dp)) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = TextMuted, modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Ingest New Document Form
+        // Semantic Search Query Bar
         item {
             Card(
-                colors = CardDefaults.cardColors(containerColor = DarkSurface2),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyanNeon.copy(alpha = 0.4f))
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text("📥 Ingest Document into Vector Store", color = PurpleNeon, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("СЕМАНТИЧЕСКИЙ ПОИСК В ПАМЯТИ", color = CyanNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     OutlinedTextField(
-                        value = newDocTitle,
-                        onValueChange = { newDocTitle = it },
-                        placeholder = { Text("Document Title (e.g. Model Guide, API Spec)") },
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Введите поисковый запрос...", color = TextMuted, fontSize = 12.sp) },
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PurpleNeon,
+                            focusedBorderColor = CyanNeon,
                             unfocusedBorderColor = DarkBorder,
                             focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
+                            unfocusedTextColor = TextPrimary,
+                            focusedContainerColor = DarkSurface2,
+                            unfocusedContainerColor = DarkSurface2
                         ),
+                        shape = RoundedCornerShape(8.dp),
                         singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    OutlinedTextField(
-                        value = newDocContent,
-                        onValueChange = { newDocContent = it },
-                        placeholder = { Text("Paste text or notes to auto-chunk and embed...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PurpleNeon,
-                            unfocusedBorderColor = DarkBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        maxLines = 4
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
                     Button(
-                        onClick = {
-                            if (newDocTitle.isNotBlank() && newDocContent.isNotBlank() && selectedCollectionId != null) {
-                                onAddDocument(selectedCollectionId!!, newDocTitle, newDocContent)
-                                newDocTitle = ""
-                                newDocContent = ""
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = PurpleNeon),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        onClick = { onTestSearch(searchQuery, selectedCollectionId) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = CyanNeon),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = DarkVoid, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Chunk & Generate Vector Embeddings", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Найти похожие чанки", color = DarkVoid, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
         }
 
-        // Semantic Vector Search Tester
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = DarkSurface2),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CyanNeon.copy(alpha = 0.4f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text("🔎 Semantic Vector Search (Cosine Similarity)", color = CyanNeon, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
+        // Search Results List
+        if (searchResults.isNotEmpty()) {
+            item {
+                Text("РЕЗУЛЬТАТЫ ПОИСКА (КОСИНУСНОЕ СХОДСТВО)", color = EmeraldAi, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
 
-                    Row(modifier = Modifier.fillMaxWidth()) {
+            items(searchResults) { res ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface2),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldAi.copy(alpha = 0.4f))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Сходство: ${String.format("%.1f%%", res.similarityScore * 100)}", color = EmeraldAi, fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            Text(res.documentTitle, color = TextMuted, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(res.chunkText, color = TextPrimary, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        // Collections Section
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("КОЛЛЕКЦИИ ЗНАНИЙ (${collections.size})", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+
+                Button(
+                    onClick = { isAddingDoc = !isAddingDoc },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, tint = CyanNeon, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(if (isAddingDoc) "Закрыть" else "Добавить документ", color = CyanNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Add Document Form
+        if (isAddingDoc) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, PurpleNeon.copy(alpha = 0.5f))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("НОВЫЙ ДОКУМЕНТ В БАЗУ ЗНАНИЙ", color = PurpleNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
                         OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("Enter semantic query...") },
-                            modifier = Modifier.weight(1f),
+                            value = newDocTitle,
+                            onValueChange = { newDocTitle = it },
+                            placeholder = { Text("Заголовок документа", color = TextMuted, fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = CyanNeon,
+                                focusedBorderColor = PurpleNeon,
                                 unfocusedBorderColor = DarkBorder,
                                 focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = DarkSurface2,
+                                unfocusedContainerColor = DarkSurface2
                             ),
+                            shape = RoundedCornerShape(6.dp),
                             singleLine = true
                         )
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        OutlinedTextField(
+                            value = newDocContent,
+                            onValueChange = { newDocContent = it },
+                            placeholder = { Text("Текст документа для индексации и генерации эмбеддингов...", color = TextMuted, fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PurpleNeon,
+                                unfocusedBorderColor = DarkBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary,
+                                focusedContainerColor = DarkSurface2,
+                                unfocusedContainerColor = DarkSurface2
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                            minLines = 3
+                        )
 
                         Button(
-                            onClick = { onTestSearch(searchQuery, selectedCollectionId) },
-                            colors = ButtonDefaults.buttonColors(containerColor = CyanNeon, contentColor = DarkVoid),
+                            onClick = {
+                                val colId = selectedCollectionId ?: collections.firstOrNull()?.id ?: 1L
+                                if (newDocTitle.isNotBlank() && newDocContent.isNotBlank()) {
+                                    onAddDocument(colId, newDocTitle, newDocContent)
+                                    newDocTitle = ""
+                                    newDocContent = ""
+                                    isAddingDoc = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = PurpleNeon),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text("Индексировать и сохранить", color = DarkVoid, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (searchResults.isNotEmpty()) {
-                        Text("Top Retrieved Chunks (${searchResults.size}):", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        searchResults.forEach { result ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(DarkSurface3)
-                                    .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
-                                    .padding(10.dp)
-                            ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(result.documentTitle, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                        Text(
-                                            "Match: ${(result.similarityScore * 100).toInt()}%",
-                                            color = if (result.similarityScore > 0.7f) EmeraldAi else CyanNeon,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    LinearProgressIndicator(
-                                        progress = { result.similarityScore },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(3.dp)
-                                            .clip(RoundedCornerShape(2.dp)),
-                                        color = if (result.similarityScore > 0.7f) EmeraldAi else CyanNeon,
-                                        trackColor = DarkVoid
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(result.chunkText, color = TextSecondary, fontSize = 11.sp, lineHeight = 16.sp)
-                                }
-                            }
+        // Collections List
+        items(collections) { col ->
+            val isSelected = selectedCollectionId == col.id
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { selectedCollectionId = col.id },
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                shape = RoundedCornerShape(10.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isSelected) CyanNeon else DarkBorder
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Book, contentDescription = null, tint = if (isSelected) CyanNeon else TextSecondary, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(col.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
+                        Text(col.description, color = TextSecondary, fontSize = 10.sp)
+                    }
+
+                    IconButton(
+                        onClick = { onDeleteCollection(col.id) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
                 }
             }

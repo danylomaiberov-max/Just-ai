@@ -101,25 +101,25 @@ fun CodeSandboxScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
             ) {
                 Column(modifier = Modifier.padding(10.dp)) {
-                    Text("Select Multi-Language Sandbox Engine:", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("ЯЗЫК ПРОГРАММИРОВАНИЯ", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(MultiLangCompilerEngine.supportedLanguages) { (langKey, langLabel) ->
-                            val isSelected = langKey == selectedLanguage
+                        items(MultiLangCompilerEngine.supportedLanguages) { langPair ->
+                            val isSelected = selectedLanguage.equals(langPair.first, ignoreCase = true)
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) CyanNeon.copy(alpha = 0.25f) else DarkSurface3)
-                                    .border(1.dp, if (isSelected) CyanNeon else DarkBorder, RoundedCornerShape(8.dp))
-                                    .clickable { onLanguageSelected(langKey) }
+                                    .background(if (isSelected) CyanNeon else DarkSurface3)
+                                    .clickable { onLanguageSelected(langPair.first) }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = langLabel,
-                                    color = if (isSelected) CyanNeon else TextSecondary,
+                                    text = langPair.first.uppercase(),
+                                    color = if (isSelected) DarkVoid else TextPrimary,
                                     fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
                         }
@@ -131,97 +131,138 @@ fun CodeSandboxScreen(
         // Code Editor Box
         item {
             Card(
-                colors = CardDefaults.cardColors(containerColor = DarkSurface2),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                border = androidx.compose.foundation.BorderStroke(1.dp, CyanNeon.copy(alpha = 0.4f))
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkSurface2)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Code, contentDescription = null, tint = CyanNeon, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Source Code Editor (${selectedLanguage.uppercase()})",
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
+                            Text("main.${selectedLanguage}", color = TextPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                         }
 
-                        Row {
-                            IconButton(onClick = { clipboardManager.setText(AnnotatedString(codeBuffer)) }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextMuted, modifier = Modifier.size(14.dp))
-                            }
-                            IconButton(onClick = { onLanguageSelected(selectedLanguage) }, modifier = Modifier.size(28.dp)) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Reset Template", tint = TextMuted, modifier = Modifier.size(14.dp))
-                            }
+                        IconButton(
+                            onClick = { clipboardManager.setText(AnnotatedString(codeBuffer)) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", tint = TextMuted, modifier = Modifier.size(14.dp))
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
 
                     OutlinedTextField(
                         value = codeBuffer,
                         onValueChange = onCodeChanged,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(260.dp)
-                            .testTag("code_editor_field"),
+                            .testTag("code_editor_input"),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanNeon,
-                            unfocusedBorderColor = DarkBorder,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
+                            focusedTextColor = EmeraldAi,
+                            unfocusedTextColor = EmeraldAi,
                             focusedContainerColor = DarkVoid,
-                            unfocusedContainerColor = DarkVoid
+                            unfocusedContainerColor = DarkVoid,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
                         ),
                         textStyle = androidx.compose.ui.text.TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
-                            lineHeight = 17.sp
+                            lineHeight = 18.sp
                         ),
-                        shape = RoundedCornerShape(8.dp)
+                        minLines = 8,
+                        maxLines = 16
                     )
+                }
+            }
+        }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+        // Action Run Button
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onRunCode,
+                    enabled = !isCompiling && codeBuffer.isNotBlank(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .testTag("run_code_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldAi),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    if (isCompiling) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = DarkVoid, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Компиляция...", color = DarkVoid, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = DarkVoid, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Запустить код", color = DarkVoid, fontWeight = FontWeight.Bold)
+                    }
+                }
 
-                    // Compile & Run Button
+                if (selectedLanguage == "html") {
                     Button(
-                        onClick = onRunCode,
-                        enabled = !isCompiling,
-                        colors = ButtonDefaults.buttonColors(containerColor = CyanNeon, contentColor = DarkVoid),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("run_code_button")
+                        onClick = { showWebPreview = !showWebPreview },
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, CyanNeon.copy(alpha = 0.5f))
                     ) {
-                        if (isCompiling) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = DarkVoid, strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Compiling & Executing...", fontWeight = FontWeight.Bold)
-                        } else {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Compile & Run Sandbox ($selectedLanguage)", fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.Web, contentDescription = null, tint = CyanNeon, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (showWebPreview) "Скрыть" else "Превью", color = CyanNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // Execution Output Console & HTML Preview
-        item {
-            if (executionResult != null) {
+        // HTML Web Preview
+        if (selectedLanguage == "html" && showWebPreview) {
+            item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkSurface2),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                webViewClient = WebViewClient()
+                                settings.javaScriptEnabled = true
+                                loadDataWithBaseURL(null, codeBuffer, "text/html", "UTF-8", null)
+                            }
+                        },
+                        update = { view ->
+                            view.loadDataWithBaseURL(null, codeBuffer, "text/html", "UTF-8", null)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+
+        // Terminal Output Result
+        if (executionResult != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                    shape = RoundedCornerShape(10.dp),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        if (executionResult.isSuccess) EmeraldAi else AmberWarning
+                        if (executionResult.isSuccess) EmeraldAi.copy(alpha = 0.6f) else AmberWarning
                     )
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -230,24 +271,14 @@ fun CodeSandboxScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = if (executionResult.isSuccess) "⚡ Execution Output (Exit 0)" else "⚠️ Compilation Error",
-                                    color = if (executionResult.isSuccess) EmeraldAi else AmberWarning,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Speed, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("${executionResult.executionTimeMs}ms", color = TextSecondary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Icon(Icons.Default.Memory, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("${executionResult.memoryUsageKb} KB", color = TextSecondary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                            }
+                            Text(
+                                if (executionResult.isSuccess) "ВЫВОД ТЕРМИНАЛА (УСПЕШНО)" else "ОШИБКА КОМПИЛЯЦИИ",
+                                color = if (executionResult.isSuccess) EmeraldAi else AmberWarning,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text("${executionResult.executionTimeMs} мс", color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -255,47 +286,16 @@ fun CodeSandboxScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(DarkVoid)
-                                .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
                                 .padding(10.dp)
                         ) {
                             Text(
-                                text = executionResult.stdout.ifBlank { executionResult.stderr },
+                                text = if (executionResult.isSuccess) executionResult.stdout else executionResult.stderr.ifBlank { executionResult.stdout },
                                 color = if (executionResult.isSuccess) TextPrimary else AmberWarning,
-                                fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,
-                                lineHeight = 16.sp
+                                fontFamily = FontFamily.Monospace
                             )
-                        }
-
-                        // Live HTML Preview Web Container
-                        if (executionResult.htmlPreview != null) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text("🌐 Live Web DOM Preview:", color = CyanNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, CyanNeon.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                            ) {
-                                AndroidView(
-                                    factory = { ctx ->
-                                        WebView(ctx).apply {
-                                            webViewClient = WebViewClient()
-                                            settings.javaScriptEnabled = true
-                                            loadDataWithBaseURL(null, executionResult.htmlPreview, "text/html", "utf-8", null)
-                                        }
-                                    },
-                                    update = { webView ->
-                                        webView.loadDataWithBaseURL(null, executionResult.htmlPreview, "text/html", "utf-8", null)
-                                    },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
                         }
                     }
                 }

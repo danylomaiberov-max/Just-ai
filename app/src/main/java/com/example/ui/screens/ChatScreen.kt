@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -22,6 +26,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -37,11 +42,12 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -65,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -75,7 +82,7 @@ import com.example.data.database.AiModelEntity
 import com.example.data.database.ChatMessageEntity
 import com.example.plugins.PluginSystem
 import com.example.ui.theme.AmberWarning
-import com.example.ui.theme.CyanGlow
+import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.CyanNeon
 import com.example.ui.theme.DarkBorder
 import com.example.ui.theme.DarkSurface1
@@ -83,7 +90,6 @@ import com.example.ui.theme.DarkSurface2
 import com.example.ui.theme.DarkSurface3
 import com.example.ui.theme.DarkVoid
 import com.example.ui.theme.EmeraldAi
-import com.example.ui.theme.PurpleDark
 import com.example.ui.theme.PurpleNeon
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextPrimary
@@ -100,16 +106,48 @@ fun ChatScreen(
     onStopGeneration: () -> Unit,
     onNewChat: () -> Unit,
     onClearChat: () -> Unit,
+    onImportLocalModel: (String, Long, String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var inputText by remember { mutableStateOf("") }
-    var selectedModelId by remember { mutableStateOf(models.firstOrNull { it.isLoadedInRam }?.id ?: "deepseek-r1-1.5b-q4") }
+    var selectedModelId by remember(models) {
+        mutableStateOf(models.firstOrNull { it.isLoadedInRam }?.id ?: models.firstOrNull()?.id ?: "deepseek-r1-1.5b-q4")
+    }
     var selectedPluginId by remember { mutableStateOf<String?>(null) }
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var isThoughtExpanded by remember { mutableStateOf(true) }
 
     val listState = rememberLazyListState()
     val clipboardManager = LocalClipboardManager.current
+
+    // Local model file picker launcher (.gguf, .bin, .safetensors, .onnx, etc.)
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            var fileName = "imported_model.gguf"
+            var fileSize = 1450L
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (cursor.moveToFirst()) {
+                        if (nameIndex != -1) fileName = cursor.getString(nameIndex)
+                        if (sizeIndex != -1) {
+                            val bytes = cursor.getLong(sizeIndex)
+                            if (bytes > 0) fileSize = bytes / (1024 * 1024)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            val cleanName = fileName.substringBeforeLast(".")
+            val expectedModelId = "local-" + cleanName.lowercase().replace("[^a-z0-9]".toRegex(), "-")
+            onImportLocalModel(fileName, fileSize, uri.toString())
+            selectedModelId = expectedModelId
+        }
+    }
 
     LaunchedEffect(messages.size, streamingText, thoughtTrace) {
         if (messages.isNotEmpty() || streamingText.isNotEmpty()) {
@@ -119,14 +157,6 @@ fun ChatScreen(
         }
     }
 
-    val samplePrompts = listOf(
-        "Запусти инференс на железе смартфона",
-        "Сделай бенчмарк Vulkan GPU и ARM NEON",
-        "Write a high performance Fibonacci in C++20",
-        "Create an async Rust worker pool",
-        "HTML/JS live cyber HUD terminal widget"
-    )
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -134,7 +164,7 @@ fun ChatScreen(
             .imePadding()
             .testTag("chat_screen")
     ) {
-        // Controls Row: Model Selector, Plugins, New Chat
+        // Controls Row: Model Selector, File Import Button, and New Chat
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -142,13 +172,13 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Model Selector Pill
+            // Left: Model Selector Pill
             Box {
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(DarkSurface2)
-                        .border(1.dp, CyanNeon.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                        .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
                         .clickable { modelDropdownExpanded = true }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                         .testTag("chat_model_selector"),
@@ -158,11 +188,11 @@ fun ChatScreen(
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(CyanNeon)
+                            .background(CrimsonNeon)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = models.find { it.id == selectedModelId }?.name ?: "DeepSeek-R1 (1.5B)",
+                        text = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
                         color = TextPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -170,7 +200,7 @@ fun ChatScreen(
                     )
                     Icon(
                         imageVector = Icons.Default.ExpandMore,
-                        contentDescription = "Select Model",
+                        contentDescription = "Выбрать модель",
                         tint = TextSecondary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -187,11 +217,11 @@ fun ChatScreen(
                                 Column {
                                     Text(
                                         text = model.name,
-                                        color = if (model.id == selectedModelId) CyanNeon else TextPrimary,
+                                        color = if (model.id == selectedModelId) CrimsonNeon else TextPrimary,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = "${model.architecture} • ${model.quantization} • ${model.fileSizeMb}MB",
+                                        text = "${model.architecture} • ${model.quantization} • ${model.fileSizeMb} МБ",
                                         color = TextSecondary,
                                         fontSize = 11.sp
                                     )
@@ -203,19 +233,64 @@ fun ChatScreen(
                             }
                         )
                     }
+
+                    // Direct file import action in dropdown
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.FolderOpen, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("+ Загрузить модель из файла...", color = CrimsonNeon, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text("Файлы .gguf, .bin, .safetensors с памяти", color = TextSecondary, fontSize = 10.sp)
+                                }
+                            }
+                        },
+                        onClick = {
+                            modelDropdownExpanded = false
+                            filePickerLauncher.launch("*/*")
+                        }
+                    )
                 }
             }
 
-            // Right Action Buttons: New Chat & Clear
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Right: File Picker Shortcut & New Chat
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Direct file button to use neural nets from files
+                Button(
+                    onClick = { filePickerLauncher.launch("*/*") },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.5f)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.testTag("chat_file_picker_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FolderOpen,
+                        contentDescription = "Файл модели",
+                        tint = CrimsonNeon,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = ".GGUF файл",
+                        color = CrimsonNeon,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 IconButton(
                     onClick = onNewChat,
                     modifier = Modifier.testTag("new_chat_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "New Chat",
-                        tint = CyanNeon
+                        contentDescription = "Новый диалог",
+                        tint = CrimsonNeon
                     )
                 }
             }
@@ -233,17 +308,26 @@ fun ChatScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (isNone) CyanNeon.copy(alpha = 0.2f) else DarkSurface2)
-                        .border(1.dp, if (isNone) CyanNeon else DarkBorder, RoundedCornerShape(12.dp))
+                        .background(if (isNone) CrimsonNeon.copy(alpha = 0.2f) else DarkSurface2)
+                        .border(1.dp, if (isNone) CrimsonNeon else DarkBorder, RoundedCornerShape(12.dp))
                         .clickable { selectedPluginId = null }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Text(
-                        text = "⚡ Pure LLM",
-                        color = if (isNone) CyanNeon else TextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Psychology,
+                            contentDescription = null,
+                            tint = if (isNone) CrimsonNeon else TextSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Базовая LLM",
+                            color = if (isNone) CrimsonNeon else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
             items(PluginSystem.allPlugins) { plugin ->
@@ -254,137 +338,49 @@ fun ChatScreen(
                         .background(if (isSelected) PurpleNeon.copy(alpha = 0.25f) else DarkSurface2)
                         .border(1.dp, if (isSelected) PurpleNeon else DarkBorder, RoundedCornerShape(12.dp))
                         .clickable { selectedPluginId = if (isSelected) null else plugin.id }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Text(
-                        text = "🧩 ${plugin.name.take(16)}",
-                        color = if (isSelected) PurpleNeon else TextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Extension,
+                            contentDescription = null,
+                            tint = if (isSelected) PurpleNeon else TextSecondary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = plugin.name.take(18),
+                            color = if (isSelected) PurpleNeon else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
 
-        // Messages List or Empty State
-        if (messages.isEmpty() && !isGenerating) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.radialGradient(
-                                    listOf(PurpleNeon.copy(alpha = 0.3f), DarkSurface2)
-                                )
-                            )
-                            .border(1.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Psychology,
-                            contentDescription = "AI Core",
-                            tint = CyanNeon,
-                            modifier = Modifier.size(36.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "Aether Local Intelligence",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Zero-telemetry on-device neural processing",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "QUICK PROMPTS",
-                        color = CyanNeon,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        samplePrompts.take(3).forEach { prompt ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        inputText = prompt
-                                    },
-                                colors = CardDefaults.cardColors(containerColor = DarkSurface2),
-                                shape = RoundedCornerShape(10.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = CyanNeon,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = prompt,
-                                        color = TextPrimary,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+        // Clean Chat Message List (without the large icon and prompt template cards)
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            state = listState,
+            contentPadding = PaddingValues(vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(messages) { message ->
+                MessageBubble(message = message, onCopy = { clipboardManager.setText(AnnotatedString(it)) })
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp),
-                state = listState,
-                contentPadding = PaddingValues(vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(messages) { message ->
-                    MessageBubble(message = message, onCopy = { clipboardManager.setText(AnnotatedString(it)) })
-                }
 
-                if (isGenerating) {
-                    item {
-                        GeneratingAssistantBubble(
-                            thoughtTrace = thoughtTrace,
-                            streamingText = streamingText,
-                            isThoughtExpanded = isThoughtExpanded,
-                            onToggleThought = { isThoughtExpanded = !isThoughtExpanded }
-                        )
-                    }
+            if (isGenerating) {
+                item {
+                    GeneratingAssistantBubble(
+                        thoughtTrace = thoughtTrace,
+                        streamingText = streamingText,
+                        isThoughtExpanded = isThoughtExpanded,
+                        onToggleThought = { isThoughtExpanded = !isThoughtExpanded }
+                    )
                 }
             }
         }
@@ -406,7 +402,7 @@ fun ChatScreen(
                     onValueChange = { inputText = it },
                     placeholder = {
                         Text(
-                            text = "Ask local AI, write C++, Rust, generate math...",
+                            text = "Введите запрос, задачу или код...",
                             color = TextMuted,
                             fontSize = 12.sp
                         )
@@ -419,7 +415,7 @@ fun ChatScreen(
                         unfocusedTextColor = TextPrimary,
                         focusedContainerColor = DarkSurface2,
                         unfocusedContainerColor = DarkSurface2,
-                        focusedBorderColor = CyanNeon,
+                        focusedBorderColor = CrimsonNeon,
                         unfocusedBorderColor = DarkBorder
                     ),
                     shape = RoundedCornerShape(20.dp),
@@ -434,33 +430,36 @@ fun ChatScreen(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(AmberWarning)
+                            .background(CrimsonNeon)
                             .testTag("stop_generation_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Stop,
-                            contentDescription = "Stop",
-                            tint = DarkVoid
+                            contentDescription = "Остановить генерацию",
+                            tint = Color.White
                         )
                     }
                 } else {
                     IconButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
-                                onSendMessage(inputText, selectedModelId, selectedPluginId)
+                                onSendMessage(inputText.trim(), selectedModelId, selectedPluginId)
                                 inputText = ""
                             }
                         },
+                        enabled = inputText.isNotBlank(),
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(CyanNeon)
+                            .background(
+                                if (inputText.isNotBlank()) CrimsonNeon else DarkSurface3
+                            )
                             .testTag("send_message_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
-                            contentDescription = "Send",
-                            tint = DarkVoid
+                            contentDescription = "Отправить",
+                            tint = if (inputText.isNotBlank()) Color.White else TextMuted
                         )
                     }
                 }
@@ -474,127 +473,121 @@ fun MessageBubble(
     message: ChatMessageEntity,
     onCopy: (String) -> Unit
 ) {
-    val isUser = message.role == "user"
-    var showThoughts by remember { mutableStateOf(false) }
+    val isUser = message.role.equals("user", ignoreCase = true)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        if (!isUser && message.thoughtTrace != null) {
-            // Collapsible DeepSeek Reasoning Trace
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .padding(bottom = 6.dp)
-                    .animateContentSize(),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface3.copy(alpha = 0.7f)),
-                shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, PurpleNeon.copy(alpha = 0.4f))
+        if (!isUser) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showThoughts = !showThoughts },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Psychology,
-                                contentDescription = null,
-                                tint = PurpleNeon,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Thought Process (<think> trace)",
-                                color = PurpleNeon,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Icon(
-                            imageVector = if (showThoughts) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    AnimatedVisibility(visible = showThoughts) {
-                        Column(modifier = Modifier.padding(top = 8.dp)) {
-                            Text(
-                                text = message.thoughtTrace,
-                                color = TextSecondary,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = CrimsonNeon,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Локальный ИИ" + if (!message.language.isNullOrBlank()) " (${message.language})" else "",
+                    color = CrimsonNeon,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
 
-        // Main Message Card
-        Card(
-            modifier = Modifier.fillMaxWidth(if (isUser) 0.85f else 0.95f),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) DarkSurface3 else DarkSurface2
-            ),
+        Surface(
             shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 14.dp,
-                bottomStart = if (isUser) 14.dp else 2.dp,
-                bottomEnd = if (isUser) 2.dp else 14.dp
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (isUser) 16.dp else 4.dp,
+                bottomEnd = if (isUser) 4.dp else 16.dp
             ),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                if (isUser) CyanNeon.copy(alpha = 0.3f) else DarkBorder
-            )
+            color = if (isUser) DarkSurface3 else DarkSurface1,
+            border = if (!isUser) androidx.compose.foundation.BorderStroke(1.dp, DarkBorder) else null,
+            modifier = Modifier.widthIn(max = 340.dp)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = message.content,
-                    color = TextPrimary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
-                )
-
-                if (!isUser && message.tokensGenerated > 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                // Show thinking trace if available
+                if (!message.thoughtTrace.isNullOrBlank()) {
+                    var showTrace by remember { mutableStateOf(false) }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(DarkSurface2)
+                            .border(1.dp, PurpleNeon.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .clickable { showTrace = !showTrace }
+                            .padding(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Speed,
-                                contentDescription = null,
-                                tint = CyanNeon,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "${message.tokPerSec} tok/s • ${message.tokensGenerated} tokens",
-                                color = TextMuted,
+                                text = "🧠 Логика рассуждений (Deep Reasoning)",
+                                color = PurpleNeon,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = if (showTrace) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = PurpleNeon,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+
+                        if (showTrace) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = message.thoughtTrace,
+                                color = TextSecondary,
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace
                             )
                         }
+                    }
+                }
+
+                // Main Message Content
+                RenderFormattedMessageText(text = message.content)
+
+                // Generation Telemetry / TPS Footer
+                if (!isUser && message.tokPerSec > 0f) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(DarkSurface2)
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${String.format("%.1f", message.tokPerSec)} т/сек • ${message.tokensGenerated} ток • ARM NEON/GPU",
+                            color = CrimsonNeon,
+                            fontSize = 9.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
 
                         IconButton(
                             onClick = { onCopy(message.content) },
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(18.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
+                                contentDescription = "Копировать",
                                 tint = TextMuted,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                         }
                     }
@@ -612,76 +605,164 @@ fun GeneratingAssistantBubble(
     onToggleThought: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth(0.95f)
-            .animateContentSize()
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
     ) {
-        if (thoughtTrace.isNotBlank()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface3),
-                shape = RoundedCornerShape(10.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, PurpleNeon)
-            ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    Row(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = CrimsonNeon,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Инференс на устройстве...",
+                color = CrimsonNeon,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = 4.dp,
+                bottomEnd = 16.dp
+            ),
+            color = DarkSurface1,
+            border = androidx.compose.foundation.BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.5f)),
+            modifier = Modifier.widthIn(max = 340.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                // Streaming Thought Trace
+                if (thoughtTrace.isNotBlank()) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onToggleThought() },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(DarkSurface2)
+                            .border(1.dp, PurpleNeon.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .clickable(onClick = onToggleThought)
+                            .padding(8.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Psychology,
-                                contentDescription = null,
-                                tint = CyanNeon,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "Deep Thinking In Progress...",
-                                color = CyanNeon,
-                                fontSize = 11.sp,
+                                text = "🧠 Мыслительный процесс DeepSeek...",
+                                color = PurpleNeon,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Icon(
+                                imageVector = if (isThoughtExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = null,
+                                tint = PurpleNeon,
+                                modifier = Modifier.size(14.dp)
+                            )
                         }
-                        Icon(
-                            imageVector = if (isThoughtExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
 
-                    if (isThoughtExpanded) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = thoughtTrace,
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
+                        if (isThoughtExpanded) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = thoughtTrace,
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     }
+                }
+
+                // Streaming Text
+                if (streamingText.isNotBlank()) {
+                    RenderFormattedMessageText(text = streamingText)
+                } else if (thoughtTrace.isBlank()) {
+                    Text(
+                        text = "Вычисление тензоров в памяти...",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
                 }
             }
         }
+    }
+}
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface2),
-            shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp, bottomEnd = 14.dp, bottomStart = 2.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, CyanNeon.copy(alpha = 0.5f))
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = if (streamingText.isBlank()) "⚡ Initializing local neural weights..." else streamingText,
-                    color = TextPrimary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
-                )
+@Composable
+fun RenderFormattedMessageText(text: String) {
+    val clipboardManager = LocalClipboardManager.current
+    val parts = text.split("```")
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        parts.forEachIndexed { index, part ->
+            if (index % 2 == 1) {
+                // Code block
+                val lines = part.trim().lines()
+                val lang = if (lines.isNotEmpty() && !lines.first().contains(" ")) lines.first() else "code"
+                val codeContent = if (lines.size > 1) lines.drop(1).joinToString("\n") else part
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface3),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Code, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = lang.uppercase(),
+                                    color = CrimsonNeon,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+
+                            IconButton(
+                                onClick = { clipboardManager.setText(AnnotatedString(codeContent)) },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = "Копировать код", tint = TextMuted, modifier = Modifier.size(12.dp))
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = codeContent,
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            } else {
+                if (part.isNotBlank()) {
+                    Text(
+                        text = part.trim(),
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                }
             }
         }
     }

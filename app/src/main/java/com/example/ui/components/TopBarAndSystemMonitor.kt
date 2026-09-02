@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -92,39 +90,42 @@ fun TopBarAndSystemMonitor(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Æ",
+                            text = "AI",
                             color = DarkVoid,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
+                            fontSize = 15.sp,
                             fontFamily = FontFamily.Monospace
                         )
                     }
+
                     Spacer(modifier = Modifier.width(10.dp))
+
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "AETHER AI",
+                                text = "Aether AI",
                                 color = TextPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 16.sp,
-                                letterSpacing = 1.sp
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(DarkSurface2)
-                                    .border(1.dp, CyanNeon.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                    .background(CyanNeon.copy(alpha = 0.15f))
+                                    .border(0.5.dp, CyanNeon.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                                     .padding(horizontal = 5.dp, vertical = 1.dp)
                             ) {
                                 Text(
-                                    text = "LOCAL ON-DEVICE",
+                                    text = "ON-DEVICE",
                                     color = CyanNeon,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
                                 )
                             }
                         }
+
                         Text(
                             text = activeModelName,
                             color = TextSecondary,
@@ -134,117 +135,134 @@ fun TopBarAndSystemMonitor(
                     }
                 }
 
-                // Privacy Shield & Status Badges
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (telemetry.isOfflineModeEnforced) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(EmeraldAi.copy(alpha = 0.15f))
-                                .border(1.dp, EmeraldAi.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.WifiOff,
-                                    contentDescription = "Offline Mode",
-                                    tint = EmeraldAi,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "OFFLINE SHIELD",
-                                    color = EmeraldAi,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                // Air-Gapped Privacy Indicator & Killswitch Status
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Offline Shield Chip
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (telemetry.isOfflineModeEnforced) EmeraldAi.copy(alpha = 0.15f)
+                                else DarkSurface2
+                            )
+                            .border(
+                                1.dp,
+                                if (telemetry.isOfflineModeEnforced) EmeraldAi.copy(alpha = 0.6f)
+                                else DarkBorder,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (telemetry.isOfflineModeEnforced) Icons.Default.Security else Icons.Default.WifiOff,
+                                contentDescription = "Защита данных",
+                                tint = if (telemetry.isOfflineModeEnforced) EmeraldAi else TextMuted,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (telemetry.isOfflineModeEnforced) "ОФФЛАЙН" else "СЕТЬ",
+                                color = if (telemetry.isOfflineModeEnforced) EmeraldAi else TextMuted,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Hardware Telemetry Strip (RAM, VRAM/GPU, Temperature, TPS)
+            // Real-Time Hardware Telemetry Strip
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(DarkSurface2)
-                    .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // RAM Gauge
+                // RAM usage
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Memory,
-                        contentDescription = "RAM",
+                        contentDescription = null,
                         tint = CyanNeon,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${(telemetry.ramUsedMb / 1024f).let { String.format("%.1f", it) }} / ${(telemetry.ramTotalMb / 1024f).let { String.format("%.1f", it) }} GB",
-                        color = TextPrimary,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                }
-
-                // Temp
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Thermostat,
-                        contentDescription = "Temp",
-                        tint = PurpleNeon,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "${telemetry.batteryTempCelsius}°C",
+                        text = "RAM: ${telemetry.ramUsedMb} МБ",
                         color = TextSecondary,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
 
-                // Vulkan GPU
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(if (telemetry.gpuVulkanActive) EmeraldAi else TextMuted)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (telemetry.gpuVulkanActive) "Vulkan GPU" else "CPU Only",
-                        color = if (telemetry.gpuVulkanActive) EmeraldAi else TextMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Real-time TPS Meter
+                // Tok/s speed
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Speed,
-                        contentDescription = "TPS",
+                        contentDescription = null,
                         tint = if (isGenerating) CyanNeon else TextMuted,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (liveMetrics != null) "${liveMetrics.tokensPerSecond} tok/s" else "32.0 tok/s",
+                        text = if (liveMetrics != null && liveMetrics.tokensPerSecond > 0f) {
+                            String.format("%.1f ток/с", liveMetrics.tokensPerSecond)
+                        } else {
+                            "Готов"
+                        },
                         color = if (isGenerating) CyanNeon else TextSecondary,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = if (isGenerating) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+
+                // Temp status
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Thermostat,
+                        contentDescription = null,
+                        tint = EmeraldAi,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Vulkan GPU",
+                        color = TextSecondary,
+                        fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
+            }
+
+            // Live Generation Progress Indicator Bar
+            AnimatedVisibility(
+                visible = isGenerating,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                        .height(2.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(CyanNeon, PurpleNeon, EmeraldAi)
+                            )
+                        )
+                )
             }
         }
     }

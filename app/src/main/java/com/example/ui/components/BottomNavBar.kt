@@ -26,19 +26,18 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.AppTab
+import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.CyanNeon
-import com.example.ui.theme.DarkBorder
 import com.example.ui.theme.DarkSurface1
 import com.example.ui.theme.DarkSurface2
-import com.example.ui.theme.PurpleNeon
 import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
 
 data class NavItem(
     val tab: AppTab,
@@ -55,14 +54,14 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        NavItem(AppTab.CHAT, "Chat", Icons.Filled.Chat, Icons.Outlined.Chat, "nav_tab_chat"),
-        NavItem(AppTab.HARDWARE_RUNNER, "Hardware", Icons.Filled.DeveloperBoard, Icons.Outlined.DeveloperBoard, "nav_tab_hardware"),
-        NavItem(AppTab.STUDIO_MULTIMODAL, "Studio", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome, "nav_tab_studio"),
-        NavItem(AppTab.MODELS_HUB, "Models", Icons.Filled.Hub, Icons.Outlined.Hub, "nav_tab_models"),
-        NavItem(AppTab.AAS_SERVER, "AAS", Icons.Filled.Dns, Icons.Outlined.Dns, "nav_tab_server"),
-        NavItem(AppTab.VECTOR_RAG, "RAG", Icons.Filled.FindInPage, Icons.Outlined.FindInPage, "nav_tab_rag"),
-        NavItem(AppTab.CODE_IDE, "IDE", Icons.Filled.Code, Icons.Outlined.Code, "nav_tab_code"),
-        NavItem(AppTab.SETTINGS_PRIVACY, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_tab_settings")
+        NavItem(AppTab.CHAT, "Чат", Icons.Filled.Chat, Icons.Outlined.Chat, "nav_tab_chat"),
+        NavItem(AppTab.MODELS_HUB, "Модели", Icons.Filled.Hub, Icons.Outlined.Hub, "nav_tab_models"),
+        NavItem(AppTab.STUDIO_MULTIMODAL, "Студия", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome, "nav_tab_studio"),
+        NavItem(AppTab.HARDWARE_RUNNER, "Железо", Icons.Filled.DeveloperBoard, Icons.Outlined.DeveloperBoard, "nav_tab_hardware"),
+        NavItem(AppTab.CODE_IDE, "Код", Icons.Filled.Code, Icons.Outlined.Code, "nav_tab_code"),
+        NavItem(AppTab.VECTOR_RAG, "Память", Icons.Filled.FindInPage, Icons.Outlined.FindInPage, "nav_tab_rag"),
+        NavItem(AppTab.AAS_SERVER, "Сервер", Icons.Filled.Dns, Icons.Outlined.Dns, "nav_tab_server"),
+        NavItem(AppTab.SETTINGS_PRIVACY, "Настройки", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_tab_settings")
     )
 
     NavigationBar(
@@ -93,9 +92,9 @@ fun BottomNavBar(
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = CyanNeon,
-                    selectedTextColor = CyanNeon,
-                    indicatorColor = DarkSurface2,
+                    selectedIconColor = Color.White,
+                    selectedTextColor = CrimsonNeon,
+                    indicatorColor = CrimsonNeon.copy(alpha = 0.25f),
                     unselectedIconColor = TextMuted,
                     unselectedTextColor = TextMuted
                 ),

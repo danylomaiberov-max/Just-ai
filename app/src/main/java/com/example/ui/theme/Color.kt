@@ -2,28 +2,36 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Futuristic Cyber AI Palette
-val CyanNeon = Color(0xFF00E5FF)
-val CyanGlow = Color(0x3300E5FF)
-val PurpleNeon = Color(0xFF8C52FF)
-val PurpleDark = Color(0xFF5E17EB)
-val EmeraldAi = Color(0xFF00E676)
+// Crimson-Neon & Dark Slate Graphite Palette (matching HyperOS photo aesthetic)
+val CrimsonNeon = Color(0xFFFF2A55)
+val CrimsonGlow = Color(0x33FF2A55)
+val CrimsonBorderGlow = Color(0x80FF2A55)
+val RubyRed = Color(0xFFE52E53)
+val ScarletNeon = Color(0xFFFF3B60)
+
+// Backward-compatible color aliases mapping to the new Crimson aesthetic
+val CyanNeon = Color(0xFFFF2A55)
+val CyanGlow = Color(0x33FF2A55)
+val PurpleNeon = Color(0xFFFF5277)
+val PurpleDark = Color(0xFFB71C1C)
+val EmeraldAi = Color(0xFFFF3366)
 val AmberWarning = Color(0xFFFFB300)
-val CoralError = Color(0xFFFF5252)
+val CoralError = Color(0xFFFF1744)
 
-val DarkVoid = Color(0xFF070A10)
-val DarkSurface1 = Color(0xFF0F1420)
-val DarkSurface2 = Color(0xFF172033)
-val DarkSurface3 = Color(0xFF1F2B44)
-val DarkBorder = Color(0xFF283858)
+val DarkVoid = Color(0xFF141519)
+val DarkSurface1 = Color(0xFF1E2027)
+val DarkSurface2 = Color(0xFF262933)
+val DarkSurface3 = Color(0xFF2F323F)
+val DarkBorder = Color(0x66FF2A55)
 
-val TextPrimary = Color(0xFFF1F5F9)
-val TextSecondary = Color(0xFF94A3B8)
-val TextMuted = Color(0xFF64748B)
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFFA6AAB8)
+val TextMuted = Color(0xFF717585)
 
 // Accents
-val AccentBlue = Color(0xFF38BDF8)
-val AccentViolet = Color(0xFFA855F7)
-val AccentPink = Color(0xFFF43F5E)
-val AccentLime = Color(0xFFA3E635)
-val AccentOrange = Color(0xFFFB923C)
+val AccentBlue = Color(0xFFFF5277)
+val AccentViolet = Color(0xFFE52E53)
+val AccentPink = Color(0xFFFF2A55)
+val AccentLime = Color(0xFFFF6080)
+val AccentOrange = Color(0xFFFF7043)
+

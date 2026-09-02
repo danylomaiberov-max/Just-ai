@@ -69,6 +69,8 @@ fun AetherApp(viewModel: MainViewModel) {
     val isTranslating by viewModel.isTranslating.collectAsState()
 
     val downloadingModels by viewModel.downloadingModels.collectAsState()
+    val engineMode by viewModel.aiRuntimeEngineMode.collectAsState()
+    val ollamaHost by viewModel.ollamaHost.collectAsState()
     val collections by viewModel.allCollections.collectAsState()
     val ragSearchResults by viewModel.ragSearchResults.collectAsState()
 
@@ -130,7 +132,10 @@ fun AetherApp(viewModel: MainViewModel) {
                             },
                             onStopGeneration = { viewModel.stopGeneration() },
                             onNewChat = { viewModel.startNewChat() },
-                            onClearChat = { viewModel.startNewChat("Fresh Session") }
+                            onClearChat = { viewModel.startNewChat("Fresh Session") },
+                            onImportLocalModel = { fileName, fileSize, filePath ->
+                                viewModel.importLocalModel(fileName, fileSize, filePath)
+                            }
                         )
                     }
 
@@ -153,8 +158,6 @@ fun AetherApp(viewModel: MainViewModel) {
 
                     AppTab.STUDIO_MULTIMODAL -> {
                         MultiModalStudioScreen(
-                            currentSubTab = studioSubTab,
-                            onSubTabSelected = { viewModel.setStudioSubTab(it) },
                             imageResult = imageResult,
                             isImageGenerating = isImageGenerating,
                             onGenerateImage = { prompt, style, ratio ->
@@ -172,7 +175,7 @@ fun AetherApp(viewModel: MainViewModel) {
                             },
                             translateResult = translateResult,
                             isTranslating = isTranslating,
-                            onTranslate = { text, target, tone ->
+                            onTranslateText = { text, target, tone ->
                                 viewModel.translate(text, target, tone)
                             }
                         )
@@ -182,8 +185,15 @@ fun AetherApp(viewModel: MainViewModel) {
                         ModelsHubScreen(
                             installedModels = models,
                             downloadingMap = downloadingModels,
+                            engineMode = engineMode,
+                            ollamaHost = ollamaHost,
+                            onSelectEngineMode = { viewModel.setRuntimeEngineMode(it) },
+                            onUpdateOllamaHost = { viewModel.setOllamaHost(it) },
                             onDownloadModel = { card, quant ->
                                 viewModel.downloadHuggingFaceModel(card, quant)
+                            },
+                            onPullOllamaModel = { tag ->
+                                viewModel.pullOllamaModel(tag)
                             },
                             onImportLocalModel = { name, size, path ->
                                 viewModel.importLocalModel(name, size, path)
@@ -241,6 +251,10 @@ fun AetherApp(viewModel: MainViewModel) {
                         SettingsPrivacyScreen(
                             telemetry = privacyTelemetry,
                             inferenceConfig = inferenceConfig,
+                            engineMode = engineMode,
+                            ollamaHost = ollamaHost,
+                            onSelectEngineMode = { viewModel.setRuntimeEngineMode(it) },
+                            onUpdateOllamaHost = { viewModel.setOllamaHost(it) },
                             onToggleOfflineMode = { enable -> viewModel.toggleOfflineMode(enable) },
                             onToggleAutoCompile = { enable -> viewModel.toggleAutoCompile(enable) },
                             onToggleGpuVulkan = { active -> viewModel.toggleGpuVulkan(active) },
