@@ -25,11 +25,22 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew || true
 
+    - name: Setup environment and keystore
+      run: |
+        if [ -f "debug.keystore.base64" ]; then
+          base64 -d debug.keystore.base64 > debug.keystore
+        fi
+        if [ ! -f ".env" ]; then
+          cp .env.example .env || touch .env
+        fi
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
     - name: Build Debug APK
-      run: gradle assembleDebug --no-daemon
+      env:
+        JAVA_OPTS: "-Djava.awt.headless=true"
+      run: gradle assembleDebug --no-daemon --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
