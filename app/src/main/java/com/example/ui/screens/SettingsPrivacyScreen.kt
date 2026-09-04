@@ -77,6 +77,7 @@ import com.example.privacy.PrivacyTelemetry
 import com.example.ui.theme.AmberWarning
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.CrimsonNeon
+import com.example.ui.AppTab
 import com.example.ui.theme.DarkBorder
 import com.example.ui.theme.DarkSurface1
 import com.example.ui.theme.DarkSurface2
@@ -110,6 +111,7 @@ fun SettingsPrivacyScreen(
     onSetCpuThreads: (Int) -> Unit,
     onUpdateInferenceConfig: (InferenceConfig) -> Unit,
     onEmergencyWipe: () -> Unit,
+    onNavigateToTab: (AppTab) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -135,6 +137,88 @@ fun SettingsPrivacyScreen(
             .testTag("settings_privacy_screen"),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+
+        // 0. SPECIALIZED EXTENSIONS & TOOLS CARD
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = CrimsonNeon,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                "РАСШИРЕННЫЕ ФУНКЦИИ И ИНСТРУМЕНТЫ",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                "Мультимедиа-студия, песочница кода, RAG-база знаний и локальный сервер API",
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onNavigateToTab(AppTab.STUDIO_MULTIMODAL) },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🎨 Студия", fontSize = 11.sp, maxLines = 1)
+                        }
+                        Button(
+                            onClick = { onNavigateToTab(AppTab.CODE_IDE) },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("💻 IDE Код", fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { onNavigateToTab(AppTab.VECTOR_RAG) },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🧠 RAG База", fontSize = 11.sp, maxLines = 1)
+                        }
+                        Button(
+                            onClick = { onNavigateToTab(AppTab.AAS_SERVER) },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface2),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("🌐 API Сервер", fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
 
         // 1. CUSTOMIZATION & THEMES (Red Theme & Aesthetics)
         item {

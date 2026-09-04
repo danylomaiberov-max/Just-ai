@@ -55,13 +55,14 @@ import kotlinx.coroutines.launch
 
 enum class AppTab {
     CHAT,
-    HARDWARE_RUNNER,
-    STUDIO_MULTIMODAL,
     MODELS_HUB,
-    AAS_SERVER,
-    VECTOR_RAG,
+    PALS,
+    HARDWARE_RUNNER,
+    SETTINGS_PRIVACY,
+    STUDIO_MULTIMODAL,
     CODE_IDE,
-    SETTINGS_PRIVACY
+    VECTOR_RAG,
+    AAS_SERVER
 }
 
 enum class StudioSubTab {

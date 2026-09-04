@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
@@ -57,6 +59,7 @@ fun TopBarAndSystemMonitor(
     telemetry: PrivacyTelemetry,
     liveMetrics: GenerationMetrics?,
     isGenerating: Boolean,
+    onOpenTools: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -138,6 +141,33 @@ fun TopBarAndSystemMonitor(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // Quick Tools Trigger
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CrimsonNeon.copy(alpha = 0.15f))
+                            .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                            .clickable { onOpenTools() }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Инструменты",
+                                tint = CrimsonNeon,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "ФУНКЦИИ",
+                                color = CrimsonNeon,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
                     // Offline Shield Chip
                     Box(
                         modifier = Modifier

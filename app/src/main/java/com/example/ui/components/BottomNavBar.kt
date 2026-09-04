@@ -39,6 +39,11 @@ import com.example.ui.theme.DarkSurface1
 import com.example.ui.theme.DarkSurface2
 import com.example.ui.theme.TextMuted
 
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Speed
+
 data class NavItem(
     val tab: AppTab,
     val label: String,
@@ -53,18 +58,11 @@ fun BottomNavBar(
     onTabSelected: (AppTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isToolsActive = currentTab in listOf(
-        AppTab.STUDIO_MULTIMODAL,
-        AppTab.CODE_IDE,
-        AppTab.VECTOR_RAG,
-        AppTab.AAS_SERVER
-    )
-
     val items = listOf(
         NavItem(AppTab.CHAT, "Чаты", Icons.Filled.Chat, Icons.Outlined.Chat, "nav_tab_chat"),
         NavItem(AppTab.MODELS_HUB, "Модели", Icons.Filled.Hub, Icons.Outlined.Hub, "nav_tab_models"),
-        NavItem(AppTab.HARDWARE_RUNNER, "Бенчмарк", Icons.Filled.DeveloperBoard, Icons.Outlined.DeveloperBoard, "nav_tab_hardware"),
-        NavItem(AppTab.STUDIO_MULTIMODAL, "Инструменты", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome, "nav_tab_tools"),
+        NavItem(AppTab.PALS, "Pals", Icons.Filled.Psychology, Icons.Outlined.Psychology, "nav_tab_pals"),
+        NavItem(AppTab.HARDWARE_RUNNER, "Бенчмарк", Icons.Filled.Speed, Icons.Outlined.Speed, "nav_tab_hardware"),
         NavItem(AppTab.SETTINGS_PRIVACY, "Настройки", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_tab_settings")
     )
 
@@ -76,7 +74,7 @@ fun BottomNavBar(
         tonalElevation = 8.dp
     ) {
         items.forEach { item ->
-            val isSelected = if (item.tab == AppTab.STUDIO_MULTIMODAL) isToolsActive else currentTab == item.tab
+            val isSelected = currentTab == item.tab || (item.tab == AppTab.PALS && currentTab in listOf(AppTab.STUDIO_MULTIMODAL, AppTab.CODE_IDE, AppTab.VECTOR_RAG, AppTab.AAS_SERVER))
             NavigationBarItem(
                 selected = isSelected,
                 onClick = { onTabSelected(item.tab) },

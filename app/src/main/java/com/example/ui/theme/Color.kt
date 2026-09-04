@@ -2,36 +2,41 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Crimson-Neon & Dark Slate Graphite Palette (matching HyperOS photo aesthetic)
-val CrimsonNeon = Color(0xFFFF2A55)
-val CrimsonGlow = Color(0x33FF2A55)
-val CrimsonBorderGlow = Color(0x80FF2A55)
-val RubyRed = Color(0xFFE52E53)
-val ScarletNeon = Color(0xFFFF3B60)
+// PocketPal AI Official Theme Palette (Fox Orange & Obsidian Dark)
+val PocketPalOrange = Color(0xFFFF5722)
+val PocketPalCoral = Color(0xFFFF6D3B)
+val PocketPalGlow = Color(0x33FF5722)
 
-// Backward-compatible color aliases mapping to the new Crimson aesthetic
-val CyanNeon = Color(0xFFFF2A55)
-val CyanGlow = Color(0x33FF2A55)
-val PurpleNeon = Color(0xFFFF5277)
-val PurpleDark = Color(0xFFB71C1C)
-val EmeraldAi = Color(0xFFFF3366)
+// Keep backward-compatible aliases so existing code links seamlessly
+val CrimsonNeon = PocketPalOrange
+val CrimsonGlow = PocketPalGlow
+val CrimsonBorderGlow = Color(0x80FF5722)
+val RubyRed = Color(0xFFF4511E)
+val ScarletNeon = PocketPalCoral
+
+val CyanNeon = Color(0xFF00B0FF)
+val CyanGlow = Color(0x3300B0FF)
+val PurpleNeon = Color(0xFFAB47BC)
+val PurpleDark = Color(0xFF6A1B9A)
+val EmeraldAi = Color(0xFF00E676)
 val AmberWarning = Color(0xFFFFB300)
-val CoralError = Color(0xFFFF1744)
+val CoralError = Color(0xFFFF5252)
 
-val DarkVoid = Color(0xFF141519)
-val DarkSurface1 = Color(0xFF1E2027)
-val DarkSurface2 = Color(0xFF262933)
-val DarkSurface3 = Color(0xFF2F323F)
-val DarkBorder = Color(0x66FF2A55)
+// Obsidian Dark Surfaces
+val DarkVoid = Color(0xFF111216)
+val DarkSurface1 = Color(0xFF191A20)
+val DarkSurface2 = Color(0xFF22242D)
+val DarkSurface3 = Color(0xFF2B2E39)
+val DarkBorder = Color(0xFF2E323F)
 
 val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFA6AAB8)
-val TextMuted = Color(0xFF717585)
+val TextSecondary = Color(0xFFA0A4B4)
+val TextMuted = Color(0xFF6B7082)
 
 // Accents
-val AccentBlue = Color(0xFFFF5277)
-val AccentViolet = Color(0xFFE52E53)
-val AccentPink = Color(0xFFFF2A55)
-val AccentLime = Color(0xFFFF6080)
-val AccentOrange = Color(0xFFFF7043)
+val AccentBlue = Color(0xFF2979FF)
+val AccentViolet = Color(0xFFAB47BC)
+val AccentPink = Color(0xFFFF4081)
+val AccentLime = Color(0xFF76FF03)
+val AccentOrange = PocketPalOrange
 

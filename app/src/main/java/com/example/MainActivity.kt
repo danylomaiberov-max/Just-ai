@@ -47,6 +47,7 @@ import com.example.ui.screens.CodeSandboxScreen
 import com.example.ui.screens.HardwareRunnerScreen
 import com.example.ui.screens.ModelsHubScreen
 import com.example.ui.screens.MultiModalStudioScreen
+import com.example.ui.screens.PalsScreen
 import com.example.ui.screens.SettingsPrivacyScreen
 import com.example.ui.screens.VectorRagScreen
 import com.example.ui.theme.AetherAITheme
@@ -134,7 +135,8 @@ fun AetherApp(viewModel: MainViewModel) {
                 activeModelName = activeModelName,
                 telemetry = privacyTelemetry,
                 liveMetrics = liveMetrics,
-                isGenerating = isGenerating
+                isGenerating = isGenerating,
+                onOpenTools = { viewModel.setTab(AppTab.PALS) }
             )
         },
         bottomBar = {
@@ -197,6 +199,25 @@ fun AetherApp(viewModel: MainViewModel) {
                             onDeleteTemplate = { viewModel.deletePromptTemplate(it) },
                             onExportTemplates = { viewModel.exportPromptTemplatesJson() },
                             onImportTemplates = { viewModel.importPromptTemplatesJson(it) }
+                        )
+                    }
+
+                    AppTab.PALS -> {
+                        PalsScreen(
+                            templates = promptTemplates,
+                            activeTemplate = activeTemplate,
+                            onSelectPal = { viewModel.applyPromptTemplate(it) },
+                            onCreatePal = { name, desc, sysPrompt, temp, topP, ctx, cat ->
+                                viewModel.createPromptTemplate(name, desc, sysPrompt, temp, topP, ctx, cat)
+                            },
+                            onDeletePal = { viewModel.deletePromptTemplate(it) },
+                            onOpenChatWithPal = { pal ->
+                                viewModel.applyPromptTemplate(pal)
+                                viewModel.setTab(AppTab.CHAT)
+                            },
+                            onNavigateToTab = { targetTab ->
+                                viewModel.setTab(targetTab)
+                            }
                         )
                     }
 
@@ -332,7 +353,8 @@ fun AetherApp(viewModel: MainViewModel) {
                             onToggleGpuVulkan = { active -> viewModel.toggleGpuVulkan(active) },
                             onSetCpuThreads = { threads -> viewModel.setCpuThreads(threads) },
                             onUpdateInferenceConfig = { cfg -> viewModel.updateInferenceConfig(cfg) },
-                            onEmergencyWipe = { viewModel.emergencyDataWipe() }
+                            onEmergencyWipe = { viewModel.emergencyDataWipe() },
+                            onNavigateToTab = { viewModel.setTab(it) }
                         )
                     }
                 }
