@@ -157,13 +157,13 @@ class AppRepository(private val database: AppDatabase) {
                 parameterSize = "1.5B",
                 quantization = "Q4_K_M",
                 fileSizeMb = 1120,
-                filePath = "/data/user/0/models/deepseek-r1-1.5b-q4.gguf",
+                filePath = null,
                 source = "HUGGING_FACE",
                 hfRepoId = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
                 contextWindow = 8192,
-                isDownloaded = true,
-                downloadProgress = 100,
-                isLoadedInRam = true,
+                isDownloaded = false,
+                downloadProgress = 0,
+                isLoadedInRam = false,
                 gpuOffloadLayers = 28,
                 memoryUsageMb = 1450,
                 description = "High-speed reasoning model with deep <think> cognitive traces for math, logic, and code."
@@ -175,12 +175,12 @@ class AppRepository(private val database: AppDatabase) {
                 parameterSize = "3.2B",
                 quantization = "Q4_K_M",
                 fileSizeMb = 1980,
-                filePath = "/data/user/0/models/llama-3.2-3b-instruct-q4.gguf",
+                filePath = null,
                 source = "HUGGING_FACE",
                 hfRepoId = "meta-llama/Llama-3.2-3B-Instruct-GGUF",
                 contextWindow = 8192,
-                isDownloaded = true,
-                downloadProgress = 100,
+                isDownloaded = false,
+                downloadProgress = 0,
                 isLoadedInRam = false,
                 gpuOffloadLayers = 32,
                 memoryUsageMb = 2100,
@@ -247,13 +247,13 @@ class AppRepository(private val database: AppDatabase) {
                 parameterSize = "39M",
                 quantization = "Q8_0",
                 fileSizeMb = 75,
-                filePath = "/data/user/0/models/whisper-tiny.bin",
+                filePath = null,
                 source = "BUILTIN",
                 hfRepoId = "openai/whisper-tiny",
                 contextWindow = 1024,
-                isDownloaded = true,
-                downloadProgress = 100,
-                isLoadedInRam = true,
+                isDownloaded = false,
+                downloadProgress = 0,
+                isLoadedInRam = false,
                 gpuOffloadLayers = 4,
                 memoryUsageMb = 120,
                 description = "Ultra-lightweight on-device speech-to-text recognition & neural audio transcription."
@@ -265,12 +265,12 @@ class AppRepository(private val database: AppDatabase) {
                 parameterSize = "860M",
                 quantization = "FP16",
                 fileSizeMb = 980,
-                filePath = "/data/user/0/models/sd-mobile.safetensors",
+                filePath = null,
                 source = "BUILTIN",
                 hfRepoId = "stabilityai/sd-turbo-mobile",
                 contextWindow = 512,
-                isDownloaded = true,
-                downloadProgress = 100,
+                isDownloaded = false,
+                downloadProgress = 0,
                 isLoadedInRam = false,
                 gpuOffloadLayers = 16,
                 memoryUsageMb = 950,
@@ -400,5 +400,24 @@ class AppRepository(private val database: AppDatabase) {
         for (snip in initialSnippets) {
             database.codeDao().insertSnippet(snip)
         }
+    }
+
+    suspend fun resetUnverifiedDownloadedModels() {
+        try {
+            val models = database.modelDao().getModelsList()
+            models.forEach { model ->
+                val isRealFile = model.filePath != null && java.io.File(model.filePath).exists()
+                if (!isRealFile && (model.isDownloaded || model.isLoadedInRam)) {
+                    database.modelDao().updateModel(
+                        model.copy(
+                            isDownloaded = false,
+                            downloadProgress = 0,
+                            isLoadedInRam = false,
+                            filePath = null
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {}
     }
 }

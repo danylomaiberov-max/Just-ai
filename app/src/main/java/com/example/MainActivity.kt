@@ -32,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.AppTab
 import com.example.ui.MainViewModel
 import com.example.ui.components.BottomNavBar
+import com.example.ui.components.ExtraFunctionsBottomSheet
 import com.example.ui.components.TopBarAndSystemMonitor
 import com.example.ui.screens.AasServerScreen
 import com.example.ui.screens.ChatScreen
@@ -75,6 +79,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun AetherApp(viewModel: MainViewModel) {
     val themeMode by viewModel.themeMode.collectAsState()
@@ -123,8 +128,10 @@ fun AetherApp(viewModel: MainViewModel) {
     val tensorTestResult by viewModel.tensorTestResult.collectAsState()
     val isTensorTesting by viewModel.isTensorTesting.collectAsState()
 
-    val activeModel = models.firstOrNull { it.isLoadedInRam } ?: models.firstOrNull()
-    val activeModelName = activeModel?.name ?: "DeepSeek-R1 (1.5B Local)"
+    var showToolsSheet by remember { mutableStateOf(false) }
+
+    val loadedModel = models.firstOrNull { it.isLoadedInRam }
+    val activeModelName = loadedModel?.name ?: if (models.any { it.isDownloaded }) "Модель не в ОЗУ" else "Модель не скачана"
 
     Scaffold(
         modifier = Modifier
@@ -136,7 +143,7 @@ fun AetherApp(viewModel: MainViewModel) {
                 telemetry = privacyTelemetry,
                 liveMetrics = liveMetrics,
                 isGenerating = isGenerating,
-                onOpenTools = { viewModel.setTab(AppTab.PALS) }
+                onOpenTools = { showToolsSheet = true }
             )
         },
         bottomBar = {
@@ -198,7 +205,9 @@ fun AetherApp(viewModel: MainViewModel) {
                             },
                             onDeleteTemplate = { viewModel.deletePromptTemplate(it) },
                             onExportTemplates = { viewModel.exportPromptTemplatesJson() },
-                            onImportTemplates = { viewModel.importPromptTemplatesJson(it) }
+                            onImportTemplates = { viewModel.importPromptTemplatesJson(it) },
+                            onOpenToolsSheet = { showToolsSheet = true },
+                            onNavigateToModels = { viewModel.setTab(AppTab.MODELS_HUB) }
                         )
                     }
 
@@ -217,7 +226,8 @@ fun AetherApp(viewModel: MainViewModel) {
                             },
                             onNavigateToTab = { targetTab ->
                                 viewModel.setTab(targetTab)
-                            }
+                            },
+                            onOpenToolsSheet = { showToolsSheet = true }
                         )
                     }
 
@@ -360,6 +370,16 @@ fun AetherApp(viewModel: MainViewModel) {
                 }
             }
         }
+    }
+
+    if (showToolsSheet) {
+        ExtraFunctionsBottomSheet(
+            onDismissRequest = { showToolsSheet = false },
+            onNavigateToTab = { targetTab ->
+                showToolsSheet = false
+                viewModel.setTab(targetTab)
+            }
+        )
     }
 }
 }

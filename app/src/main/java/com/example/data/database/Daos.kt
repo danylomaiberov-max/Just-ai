@@ -45,6 +45,9 @@ interface ModelDao {
     @Query("SELECT * FROM ai_models ORDER BY isDownloaded DESC, name ASC")
     fun getAllModels(): Flow<List<AiModelEntity>>
 
+    @Query("SELECT * FROM ai_models")
+    suspend fun getModelsList(): List<AiModelEntity>
+
     @Query("SELECT * FROM ai_models WHERE id = :id")
     suspend fun getModelById(id: String): AiModelEntity?
 

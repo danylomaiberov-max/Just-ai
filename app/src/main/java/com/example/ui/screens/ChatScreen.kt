@@ -10,6 +10,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -128,17 +129,20 @@ fun ChatScreen(
     onDeleteTemplate: (String) -> Unit = {},
     onExportTemplates: () -> String = { "" },
     onImportTemplates: (String) -> Pair<Boolean, String> = { Pair(false, "") },
+    onOpenToolsSheet: () -> Unit = {},
+    onNavigateToModels: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var inputText by remember { mutableStateOf("") }
     var selectedModelId by remember(models) {
-        mutableStateOf(models.firstOrNull { it.isLoadedInRam }?.id ?: models.firstOrNull()?.id ?: "deepseek-r1-1.5b-q4")
+        mutableStateOf(models.firstOrNull { it.isLoadedInRam }?.id ?: models.firstOrNull { it.isDownloaded }?.id ?: models.firstOrNull()?.id ?: "deepseek-r1-1.5b-q4")
     }
     var selectedPluginId by remember { mutableStateOf<String?>(null) }
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var templateDropdownExpanded by remember { mutableStateOf(false) }
     var isThoughtExpanded by remember { mutableStateOf(true) }
+    var showNoModelDialog by remember { mutableStateOf(false) }
 
     // In-Chat Prompt Templates (Pals) Management Dialog States
     var showTemplatesDialog by remember { mutableStateOf(false) }
@@ -477,10 +481,14 @@ fun ChatScreen(
         }
 
         // Clean Chat Message List or PocketPal Welcome state
+        val isAnyModelDownloaded = models.any { it.isDownloaded }
         if (messages.isEmpty() && !isGenerating) {
             PocketPalWelcomeView(
-                activeModelName = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
+                activeModelName = models.find { it.id == selectedModelId }?.name ?: if (isAnyModelDownloaded) "Локальная модель" else "Модель не скачана",
                 activePalName = activeTemplate?.name ?: "PocketPal",
+                isModelDownloaded = isAnyModelDownloaded,
+                onNavigateToModels = onNavigateToModels,
+                onImportModelFile = { filePickerLauncher.launch("*/*") },
                 onSelectSuggestion = { suggestionText ->
                     inputText = suggestionText
                 },
@@ -525,17 +533,38 @@ fun ChatScreen(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Quick Extra Functions (Шторка) trigger
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(DarkSurface2)
+                        .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), CircleShape)
+                        .clickable { onOpenToolsSheet() }
+                        .testTag("chat_open_tools_sheet_btn"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "Шторка с доп. функциями",
+                        tint = CrimsonNeon,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
                 // Quick Pal / Templates trigger
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
                         .background(DarkSurface2)
                         .border(1.dp, PurpleNeon.copy(alpha = 0.5f), CircleShape)
                         .clickable { showTemplatesDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🦊", fontSize = 18.sp)
+                    Text("🦊", fontSize = 16.sp)
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -586,8 +615,13 @@ fun ChatScreen(
                     IconButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
-                                onSendMessage(inputText.trim(), selectedModelId, selectedPluginId)
-                                inputText = ""
+                                val hasDownloaded = models.any { it.isDownloaded }
+                                if (!hasDownloaded) {
+                                    showNoModelDialog = true
+                                } else {
+                                    onSendMessage(inputText.trim(), selectedModelId, selectedPluginId)
+                                    inputText = ""
+                                }
                             }
                         },
                         enabled = inputText.isNotBlank(),
@@ -608,6 +642,54 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    // ==========================================
+    // DIALOG 0: No Model Downloaded Warning
+    // ==========================================
+    if (showNoModelDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoModelDialog = false },
+            containerColor = DarkSurface1,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Модель не скачана", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+            },
+            text = {
+                Text(
+                    text = "Для генерации ответов на устройстве необходимо скачать модель из Каталога (например DeepSeek-R1 1.5B) или выбрать свой локальный файл .gguf с памяти.",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showNoModelDialog = false
+                        onNavigateToModels()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Каталог моделей", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showNoModelDialog = false
+                        filePickerLauncher.launch("*/*")
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.5f))
+                ) {
+                    Text("Выбрать файл .gguf", color = CrimsonNeon)
+                }
+            }
+        )
     }
 
     // ==========================================
@@ -1409,6 +1491,9 @@ fun RenderFormattedMessageText(text: String) {
 fun PocketPalWelcomeView(
     activeModelName: String,
     activePalName: String,
+    isModelDownloaded: Boolean = true,
+    onNavigateToModels: () -> Unit = {},
+    onImportModelFile: () -> Unit = {},
     onSelectSuggestion: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1475,15 +1560,98 @@ fun PocketPalWelcomeView(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(CrimsonNeon.copy(alpha = 0.15f))
-                    .border(0.5.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .background(if (isModelDownloaded) CrimsonNeon.copy(alpha = 0.15f) else AmberWarning.copy(alpha = 0.15f))
+                    .border(0.5.dp, if (isModelDownloaded) CrimsonNeon.copy(alpha = 0.5f) else AmberWarning.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
-                Text("📦 $activeModelName", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = "📦 $activeModelName",
+                    color = if (isModelDownloaded) CrimsonNeon else AmberWarning,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        // Notice if no models downloaded
+        if (!isModelDownloaded) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("no_downloaded_model_banner"),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.45f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = null,
+                            tint = CrimsonNeon,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Нейросеть еще не скачана",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Чтобы общаться локально на устройстве, выберите модель из Каталога или укажите свой .gguf файл с памяти телефона.",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = onNavigateToModels,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("welcome_btn_open_models"),
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Скачать модель", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = onImportModelFile,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("welcome_btn_import_gguf"),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CrimsonNeon.copy(alpha = 0.6f))
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, tint = CrimsonNeon, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(".GGUF с памяти", color = CrimsonNeon, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(18.dp))
 
         Text(
             text = "Быстрый старт",

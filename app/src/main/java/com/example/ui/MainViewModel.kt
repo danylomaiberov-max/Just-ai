@@ -165,6 +165,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
+            repository.resetUnverifiedDownloadedModels()
         }
 
         // Initialize PocketPal-compatible Prompt Templates

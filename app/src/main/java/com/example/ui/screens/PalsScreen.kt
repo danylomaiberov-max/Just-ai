@@ -110,6 +110,7 @@ fun PalsScreen(
     onDeletePal: (String) -> Unit,
     onOpenChatWithPal: (PromptTemplate) -> Unit,
     onNavigateToTab: (AppTab) -> Unit,
+    onOpenToolsSheet: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: My Pals, 1: PalsHub
@@ -298,6 +299,15 @@ fun PalsScreen(
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        item {
+                            SpecialFeatureChip(
+                                icon = Icons.Filled.Tune,
+                                title = "Шторка функций",
+                                subtitle = "Быстрое меню",
+                                color = PocketPalCoral,
+                                onClick = onOpenToolsSheet
+                            )
+                        }
                         item {
                             SpecialFeatureChip(
                                 icon = Icons.Filled.AutoAwesome,
