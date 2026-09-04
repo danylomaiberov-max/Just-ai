@@ -1,6 +1,6 @@
 {
-  "name": "Aether AI: Local LLM & Studio",
-  "description": "Local LLM runner, AI-as-a-Service (Ollama API), multi-modal generator, HuggingFace downloader, Vector DB RAG, code sandbox, and offline privacy shield.",
+  "name": "PocketPal AI",
+  "description": "Local on-device AI runner & model hub inspired by PocketPal AI. Run GGUF models, DeepSeek-R1 reasoning, hardware benchmarks, and offline tools 100% private.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

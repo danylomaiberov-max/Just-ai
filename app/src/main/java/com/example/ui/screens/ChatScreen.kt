@@ -45,20 +45,33 @@ import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.SettingsSuggest
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CheckCircle
+import android.widget.Toast
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -111,6 +124,10 @@ fun ChatScreen(
     promptTemplates: List<PromptTemplate> = emptyList(),
     activeTemplate: PromptTemplate? = null,
     onSelectTemplate: (PromptTemplate) -> Unit = {},
+    onCreateTemplate: (String, String, String, Float, Float, Int, String) -> Unit = { _, _, _, _, _, _, _ -> },
+    onDeleteTemplate: (String) -> Unit = {},
+    onExportTemplates: () -> String = { "" },
+    onImportTemplates: (String) -> Pair<Boolean, String> = { Pair(false, "") },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -122,6 +139,22 @@ fun ChatScreen(
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var templateDropdownExpanded by remember { mutableStateOf(false) }
     var isThoughtExpanded by remember { mutableStateOf(true) }
+
+    // In-Chat Prompt Templates (Pals) Management Dialog States
+    var showTemplatesDialog by remember { mutableStateOf(false) }
+    var showCreateTemplateDialog by remember { mutableStateOf(false) }
+    var showExportTemplateDialog by remember { mutableStateOf(false) }
+    var showImportTemplateDialog by remember { mutableStateOf(false) }
+    var exportTemplateJsonString by remember { mutableStateOf("") }
+    var importTemplateJsonInput by remember { mutableStateOf("") }
+
+    var newTplName by remember { mutableStateOf("") }
+    var newTplCategory by remember { mutableStateOf("Ассистент") }
+    var newTplDescription by remember { mutableStateOf("") }
+    var newTplSystemPrompt by remember { mutableStateOf("") }
+    var newTplTemperature by remember { mutableStateOf(0.7f) }
+    var newTplTopP by remember { mutableStateOf(0.9f) }
+    var newTplContextSize by remember { mutableStateOf(4096) }
 
     val listState = rememberLazyListState()
     val clipboardManager = LocalClipboardManager.current
@@ -177,11 +210,89 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Left: Model & Template Selectors
+            // Left: Pal (Character) & Model Selectors (PocketPal Style)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                // Pal / Template Selector Pill
+                if (promptTemplates.isNotEmpty()) {
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(DarkSurface2)
+                                .border(1.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                                .clickable { templateDropdownExpanded = true }
+                                .padding(horizontal = 9.dp, vertical = 6.dp)
+                                .testTag("chat_template_selector"),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🦊", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = activeTemplate?.name?.take(12) ?: "PocketPal",
+                                color = TextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ExpandMore,
+                                contentDescription = "Выбрать Pal",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = templateDropdownExpanded,
+                            onDismissRequest = { templateDropdownExpanded = false },
+                            modifier = Modifier.background(DarkSurface2)
+                        ) {
+                            promptTemplates.forEach { tpl ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(
+                                                text = "🦊 ${tpl.name}",
+                                                color = if (tpl.id == activeTemplate?.id) PurpleNeon else TextPrimary,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 12.sp
+                                            )
+                                            Text(
+                                                text = "${tpl.category} • T: ${tpl.temperature}",
+                                                color = TextSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        onSelectTemplate(tpl)
+                                        templateDropdownExpanded = false
+                                    }
+                                )
+                            }
+
+                            HorizontalDivider(color = DarkBorder, thickness = 0.5.dp)
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.SettingsSuggest, contentDescription = null, tint = PurpleNeon, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Управление Pals (Шаблонами)...", color = PurpleNeon, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                },
+                                onClick = {
+                                    templateDropdownExpanded = false
+                                    showTemplatesDialog = true
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Model Selector Pill
                 Box {
                     Row(
@@ -190,19 +301,14 @@ fun ChatScreen(
                             .background(DarkSurface2)
                             .border(1.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
                             .clickable { modelDropdownExpanded = true }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 9.dp, vertical = 6.dp)
                             .testTag("chat_model_selector"),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(CrimsonNeon)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("📦", fontSize = 11.sp)
+                        Spacer(modifier = Modifier.width(5.dp))
                         Text(
-                            text = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
+                            text = models.find { it.id == selectedModelId }?.name?.take(13) ?: "Локальная модель",
                             color = TextPrimary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -212,7 +318,7 @@ fun ChatScreen(
                             imageVector = Icons.Default.ExpandMore,
                             contentDescription = "Выбрать модель",
                             tint = TextSecondary,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
 
@@ -261,73 +367,6 @@ fun ChatScreen(
                                 filePickerLauncher.launch("*/*")
                             }
                         )
-                    }
-                }
-
-                // Template / Persona Pill
-                if (promptTemplates.isNotEmpty()) {
-                    Box {
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(DarkSurface2)
-                                .border(1.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                                .clickable { templateDropdownExpanded = true }
-                                .padding(horizontal = 8.dp, vertical = 6.dp)
-                                .testTag("chat_template_selector"),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(PurpleNeon)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = activeTemplate?.name?.take(12) ?: "Шаблон",
-                                color = TextPrimary,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ExpandMore,
-                                contentDescription = "Выбрать шаблон",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
-
-                        DropdownMenu(
-                            expanded = templateDropdownExpanded,
-                            onDismissRequest = { templateDropdownExpanded = false },
-                            modifier = Modifier.background(DarkSurface2)
-                        ) {
-                            promptTemplates.forEach { tpl ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text(
-                                                text = tpl.name,
-                                                color = if (tpl.id == activeTemplate?.id) PurpleNeon else TextPrimary,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 12.sp
-                                            )
-                                            Text(
-                                                text = "${tpl.category} • T: ${tpl.temperature}",
-                                                color = TextSecondary,
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        onSelectTemplate(tpl)
-                                        templateDropdownExpanded = false
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -437,33 +476,44 @@ fun ChatScreen(
             }
         }
 
-        // Clean Chat Message List (without the large icon and prompt template cards)
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            state = listState,
-            contentPadding = PaddingValues(vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(messages) { message ->
-                MessageBubble(message = message, onCopy = { clipboardManager.setText(AnnotatedString(it)) })
-            }
+        // Clean Chat Message List or PocketPal Welcome state
+        if (messages.isEmpty() && !isGenerating) {
+            PocketPalWelcomeView(
+                activeModelName = models.find { it.id == selectedModelId }?.name ?: "Локальная модель",
+                activePalName = activeTemplate?.name ?: "PocketPal",
+                onSelectSuggestion = { suggestionText ->
+                    inputText = suggestionText
+                },
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                state = listState,
+                contentPadding = PaddingValues(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(messages) { message ->
+                    MessageBubble(message = message, onCopy = { clipboardManager.setText(AnnotatedString(it)) })
+                }
 
-            if (isGenerating) {
-                item {
-                    GeneratingAssistantBubble(
-                        thoughtTrace = thoughtTrace,
-                        streamingText = streamingText,
-                        isThoughtExpanded = isThoughtExpanded,
-                        onToggleThought = { isThoughtExpanded = !isThoughtExpanded }
-                    )
+                if (isGenerating) {
+                    item {
+                        GeneratingAssistantBubble(
+                            thoughtTrace = thoughtTrace,
+                            streamingText = streamingText,
+                            isThoughtExpanded = isThoughtExpanded,
+                            onToggleThought = { isThoughtExpanded = !isThoughtExpanded }
+                        )
+                    }
                 }
             }
         }
 
-        // Bottom Input Toolbar
+        // PocketPal Bottom Input Capsule
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = DarkSurface1,
@@ -472,17 +522,32 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Quick Pal / Templates trigger
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(DarkSurface2)
+                        .border(1.dp, PurpleNeon.copy(alpha = 0.5f), CircleShape)
+                        .clickable { showTemplatesDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🦊", fontSize = 18.sp)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
                     placeholder = {
                         Text(
-                            text = "Введите запрос, задачу или код...",
+                            text = "Спросить PocketPal...",
                             color = TextMuted,
-                            fontSize = 12.sp
+                            fontSize = 13.sp
                         )
                     },
                     modifier = Modifier
@@ -496,7 +561,7 @@ fun ChatScreen(
                         focusedBorderColor = CrimsonNeon,
                         unfocusedBorderColor = DarkBorder
                     ),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     maxLines = 4
                 )
 
@@ -506,7 +571,7 @@ fun ChatScreen(
                     IconButton(
                         onClick = onStopGeneration,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
                             .background(CrimsonNeon)
                             .testTag("stop_generation_button")
@@ -527,7 +592,7 @@ fun ChatScreen(
                         },
                         enabled = inputText.isNotBlank(),
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
                             .background(
                                 if (inputText.isNotBlank()) CrimsonNeon else DarkSurface3
@@ -543,6 +608,495 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    // ==========================================
+    // DIALOG 1: Main Pals & Templates Manager
+    // ==========================================
+    if (showTemplatesDialog) {
+        AlertDialog(
+            onDismissRequest = { showTemplatesDialog = false },
+            containerColor = DarkSurface1,
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.DataObject, contentDescription = null, tint = PurpleNeon, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Шаблоны и Pals",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                    IconButton(onClick = { showTemplatesDialog = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Закрыть", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Управление персонажами, промптами и пресетами PocketPal на устройстве (работает 100% оффлайн).",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    // Top Action Buttons: Create, Export, Import
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                newTplName = ""
+                                newTplDescription = ""
+                                newTplSystemPrompt = ""
+                                newTplTemperature = 0.7f
+                                newTplTopP = 0.9f
+                                newTplCategory = "Ассистент"
+                                showCreateTemplateDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Создать", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                exportTemplateJsonString = onExportTemplates()
+                                showExportTemplateDialog = true
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PurpleNeon),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PurpleNeon),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(14.dp), tint = PurpleNeon)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Экспорт", color = PurpleNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                importTemplateJsonInput = ""
+                                showImportTemplateDialog = true
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldAi),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldAi),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp), tint = EmeraldAi)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Импорт", color = EmeraldAi, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Template List
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(promptTemplates) { tpl ->
+                            val isActive = activeTemplate?.id == tpl.id
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isActive) DarkSurface2 else DarkSurface3
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    if (isActive) 1.5.dp else 0.5.dp,
+                                    if (isActive) CrimsonNeon else DarkBorder
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                tpl.name,
+                                                color = TextPrimary,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(DarkSurface1)
+                                                    .border(0.5.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    tpl.category,
+                                                    color = PurpleNeon,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isActive) {
+                                                Icon(
+                                                    Icons.Default.CheckCircle,
+                                                    contentDescription = "Активен",
+                                                    tint = CrimsonNeon,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Активен",
+                                                    color = CrimsonNeon,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            } else {
+                                                TextButton(
+                                                    onClick = {
+                                                        onSelectTemplate(tpl)
+                                                        Toast.makeText(context, "Шаблон '${tpl.name}' активирован!", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("Выбрать", color = CyanNeon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+
+                                            if (tpl.isCustom) {
+                                                IconButton(
+                                                    onClick = {
+                                                        onDeleteTemplate(tpl.id)
+                                                        Toast.makeText(context, "Шаблон удален", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.DeleteOutline,
+                                                        contentDescription = "Удалить шаблон",
+                                                        tint = TextMuted,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        tpl.description,
+                                        color = TextSecondary,
+                                        fontSize = 10.sp,
+                                        maxLines = 2
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = tpl.systemPrompt,
+                                        color = TextMuted,
+                                        fontSize = 9.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        maxLines = 2,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(DarkSurface1)
+                                            .padding(6.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Temp: ${tpl.temperature} • TopP: ${tpl.topP}", color = TextMuted, fontSize = 9.sp)
+                                        Text("Ctx: ${tpl.contextWindow} tok", color = TextMuted, fontSize = 9.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showTemplatesDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                ) {
+                    Text("Готово", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // ==========================================
+    // DIALOG 2: Create New Template / Pal
+    // ==========================================
+    if (showCreateTemplateDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateTemplateDialog = false },
+            containerColor = DarkSurface1,
+            title = {
+                Text("Новый шаблон / Pal", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = newTplName,
+                        onValueChange = { newTplName = it },
+                        label = { Text("Имя персонажа / шаблона", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CrimsonNeon,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = newTplCategory,
+                        onValueChange = { newTplCategory = it },
+                        label = { Text("Категория (напр. Код, Ролевая, Логика)", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CrimsonNeon,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = newTplDescription,
+                        onValueChange = { newTplDescription = it },
+                        label = { Text("Краткое описание", fontSize = 11.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CrimsonNeon,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = newTplSystemPrompt,
+                        onValueChange = { newTplSystemPrompt = it },
+                        label = { Text("Системный промпт (Инструкция)", fontSize = 11.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CrimsonNeon,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Temperature: ${String.format("%.2f", newTplTemperature)}", color = TextSecondary, fontSize = 10.sp)
+                    }
+                    Slider(
+                        value = newTplTemperature,
+                        onValueChange = { newTplTemperature = it },
+                        valueRange = 0.0f..1.5f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = CrimsonNeon,
+                            activeTrackColor = CrimsonNeon,
+                            inactiveTrackColor = DarkSurface3
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTplName.isNotBlank() && newTplSystemPrompt.isNotBlank()) {
+                            onCreateTemplate(
+                                newTplName.trim(),
+                                newTplDescription.trim().ifBlank { "Пользовательский шаблон" },
+                                newTplSystemPrompt.trim(),
+                                newTplTemperature,
+                                newTplTopP,
+                                newTplContextSize,
+                                newTplCategory.trim().ifBlank { "Пользовательские" }
+                            )
+                            Toast.makeText(context, "Шаблон '$newTplName' создан!", Toast.LENGTH_SHORT).show()
+                            showCreateTemplateDialog = false
+                        } else {
+                            Toast.makeText(context, "Укажите имя и системный промпт", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonNeon)
+                ) {
+                    Text("Сохранить", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateTemplateDialog = false }) {
+                    Text("Отмена", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // ==========================================
+    // DIALOG 3: Export Templates JSON
+    // ==========================================
+    if (showExportTemplateDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportTemplateDialog = false },
+            containerColor = DarkSurface1,
+            title = {
+                Text("Экспорт шаблонов (JSON)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Скопируйте JSON конфигурацию шаблонов для использования на других устройствах:",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    OutlinedTextField(
+                        value = exportTemplateJsonString,
+                        onValueChange = {},
+                        readOnly = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PurpleNeon,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 9.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(exportTemplateJsonString))
+                        Toast.makeText(context, "JSON скопирован в буфер обмена!", Toast.LENGTH_SHORT).show()
+                        showExportTemplateDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PurpleNeon)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Скопировать JSON", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportTemplateDialog = false }) {
+                    Text("Закрыть", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // ==========================================
+    // DIALOG 4: Import Templates JSON
+    // ==========================================
+    if (showImportTemplateDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportTemplateDialog = false },
+            containerColor = DarkSurface1,
+            title = {
+                Text("Импорт шаблонов (JSON)", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Вставьте JSON-структуру шаблонов PocketPal / Aether:",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    OutlinedTextField(
+                        value = importTemplateJsonInput,
+                        onValueChange = { importTemplateJsonInput = it },
+                        placeholder = { Text("Вставьте JSON здесь...", fontSize = 10.sp, color = TextSecondary) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldAi,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 9.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (importTemplateJsonInput.isNotBlank()) {
+                            val result = onImportTemplates(importTemplateJsonInput.trim())
+                            Toast.makeText(context, result.second, Toast.LENGTH_LONG).show()
+                            if (result.first) {
+                                showImportTemplateDialog = false
+                            }
+                        } else {
+                            Toast.makeText(context, "Вставьте JSON для импорта", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldAi)
+                ) {
+                    Text("Импортировать", color = DarkVoid, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportTemplateDialog = false }) {
+                    Text("Отмена", color = TextSecondary)
+                }
+            }
+        )
     }
 }
 
@@ -562,19 +1116,21 @@ fun MessageBubble(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    tint = CrimsonNeon,
-                    modifier = Modifier.size(12.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(CrimsonNeon.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🦊", fontSize = 11.sp)
+                }
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Локальный ИИ" + if (!message.language.isNullOrBlank()) " (${message.language})" else "",
+                    text = "PocketPal" + if (!message.language.isNullOrBlank()) " • ${message.language}" else "",
                     color = CrimsonNeon,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -690,15 +1246,18 @@ fun GeneratingAssistantBubble(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = null,
-                tint = CrimsonNeon,
-                modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(CrimsonNeon.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🦊", fontSize = 11.sp)
+            }
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = "Инференс на устройстве...",
+                text = "PocketPal думает...",
                 color = CrimsonNeon,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
@@ -839,6 +1398,135 @@ fun RenderFormattedMessageText(text: String) {
                         color = TextPrimary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PocketPalWelcomeView(
+    activeModelName: String,
+    activePalName: String,
+    onSelectSuggestion: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Hero glowing Fox Badge
+        Box(
+            modifier = Modifier
+                .size(70.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(CrimsonNeon, AmberWarning)
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("🦊", fontSize = 38.sp)
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            text = "PocketPal AI",
+            color = TextPrimary,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Локальный автономный ИИ. Работает прямо на процессоре устройства без интернета и серверов.",
+            color = TextSecondary,
+            fontSize = 12.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Status chips: Active Pal & Active Model
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PurpleNeon.copy(alpha = 0.15f))
+                    .border(0.5.dp, PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("🦊 $activePalName", color = PurpleNeon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(CrimsonNeon.copy(alpha = 0.15f))
+                    .border(0.5.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("📦 $activeModelName", color = CrimsonNeon, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "Быстрый старт",
+            color = TextMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val suggestions = listOf(
+            Triple("🧠 Глубокие рассуждения", "Объясни парадокс кота Шрёдингера с точки зрения квантовой логики.", PurpleNeon),
+            Triple("💻 Разработка кода", "Напиши на Python быструю реализацию LRU Cache с объяснением алгоритма.", CyanNeon),
+            Triple("⚡ Бенчмарк чипа", "Замерь скорость вывода токенов в секунду для моего процессора.", EmeraldAi),
+            Triple("📝 Редактура текста", "Сделай следующий текст более убедительным и грамотным: ", AmberWarning)
+        )
+
+        suggestions.forEach { (title, prompt, color) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { onSelectSuggestion(prompt) },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurface1),
+                border = androidx.compose.foundation.BorderStroke(1.dp, DarkBorder)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(title, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(prompt.take(65) + "...", color = TextSecondary, fontSize = 11.sp, maxLines = 1)
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Выбрать",
+                        tint = color,
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }

@@ -53,14 +53,18 @@ fun BottomNavBar(
     onTabSelected: (AppTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isToolsActive = currentTab in listOf(
+        AppTab.STUDIO_MULTIMODAL,
+        AppTab.CODE_IDE,
+        AppTab.VECTOR_RAG,
+        AppTab.AAS_SERVER
+    )
+
     val items = listOf(
-        NavItem(AppTab.CHAT, "Чат", Icons.Filled.Chat, Icons.Outlined.Chat, "nav_tab_chat"),
+        NavItem(AppTab.CHAT, "Чаты", Icons.Filled.Chat, Icons.Outlined.Chat, "nav_tab_chat"),
         NavItem(AppTab.MODELS_HUB, "Модели", Icons.Filled.Hub, Icons.Outlined.Hub, "nav_tab_models"),
-        NavItem(AppTab.STUDIO_MULTIMODAL, "Студия", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome, "nav_tab_studio"),
-        NavItem(AppTab.HARDWARE_RUNNER, "Железо", Icons.Filled.DeveloperBoard, Icons.Outlined.DeveloperBoard, "nav_tab_hardware"),
-        NavItem(AppTab.CODE_IDE, "Код", Icons.Filled.Code, Icons.Outlined.Code, "nav_tab_code"),
-        NavItem(AppTab.VECTOR_RAG, "Память", Icons.Filled.FindInPage, Icons.Outlined.FindInPage, "nav_tab_rag"),
-        NavItem(AppTab.AAS_SERVER, "Сервер", Icons.Filled.Dns, Icons.Outlined.Dns, "nav_tab_server"),
+        NavItem(AppTab.HARDWARE_RUNNER, "Бенчмарк", Icons.Filled.DeveloperBoard, Icons.Outlined.DeveloperBoard, "nav_tab_hardware"),
+        NavItem(AppTab.STUDIO_MULTIMODAL, "Инструменты", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome, "nav_tab_tools"),
         NavItem(AppTab.SETTINGS_PRIVACY, "Настройки", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_tab_settings")
     )
 
@@ -72,7 +76,7 @@ fun BottomNavBar(
         tonalElevation = 8.dp
     ) {
         items.forEach { item ->
-            val isSelected = currentTab == item.tab
+            val isSelected = if (item.tab == AppTab.STUDIO_MULTIMODAL) isToolsActive else currentTab == item.tab
             NavigationBarItem(
                 selected = isSelected,
                 onClick = { onTabSelected(item.tab) },
@@ -80,13 +84,13 @@ fun BottomNavBar(
                     Icon(
                         imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
                         contentDescription = item.label,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 },
                 label = {
                     Text(
                         text = item.label,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         maxLines = 1
                     )

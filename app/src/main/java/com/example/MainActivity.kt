@@ -8,13 +8,35 @@ import androidx.activity.viewModels
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.FindInPage
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.AppTab
 import com.example.ui.MainViewModel
 import com.example.ui.components.BottomNavBar
@@ -28,7 +50,13 @@ import com.example.ui.screens.MultiModalStudioScreen
 import com.example.ui.screens.SettingsPrivacyScreen
 import com.example.ui.screens.VectorRagScreen
 import com.example.ui.theme.AetherAITheme
+import com.example.ui.theme.CrimsonNeon
+import com.example.ui.theme.DarkBorder
+import com.example.ui.theme.DarkSurface1
 import com.example.ui.theme.DarkVoid
+import com.example.ui.theme.TextMuted
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
 
@@ -117,14 +145,33 @@ fun AetherApp(viewModel: MainViewModel) {
         },
         containerColor = DarkVoid
     ) { innerPadding ->
-        Box(
+        val isToolsActive = currentTab in listOf(
+            AppTab.STUDIO_MULTIMODAL,
+            AppTab.CODE_IDE,
+            AppTab.VECTOR_RAG,
+            AppTab.AAS_SERVER
+        )
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(DarkVoid)
         ) {
-            Crossfade(targetState = currentTab, label = "tab_crossfade") { tab ->
-                when (tab) {
+            if (isToolsActive) {
+                ToolsSubNavBar(
+                    currentTab = currentTab,
+                    onSelectTab = { viewModel.setTab(it) }
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Crossfade(targetState = currentTab, label = "tab_crossfade") { tab ->
+                    when (tab) {
                     AppTab.CHAT -> {
                         ChatScreen(
                             messages = messages,
@@ -143,7 +190,13 @@ fun AetherApp(viewModel: MainViewModel) {
                             },
                             promptTemplates = promptTemplates,
                             activeTemplate = activeTemplate,
-                            onSelectTemplate = { viewModel.applyPromptTemplate(it) }
+                            onSelectTemplate = { viewModel.applyPromptTemplate(it) },
+                            onCreateTemplate = { name, desc, sysPrompt, temp, topP, ctx, cat ->
+                                viewModel.createPromptTemplate(name, desc, sysPrompt, temp, topP, ctx, cat)
+                            },
+                            onDeleteTemplate = { viewModel.deletePromptTemplate(it) },
+                            onExportTemplates = { viewModel.exportPromptTemplatesJson() },
+                            onImportTemplates = { viewModel.importPromptTemplatesJson(it) }
                         )
                     }
 
@@ -287,3 +340,64 @@ fun AetherApp(viewModel: MainViewModel) {
         }
     }
 }
+}
+
+@Composable
+fun ToolsSubNavBar(
+    currentTab: AppTab,
+    onSelectTab: (AppTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val toolTabs = listOf(
+        Triple(AppTab.STUDIO_MULTIMODAL, "Студия", Icons.Filled.AutoAwesome),
+        Triple(AppTab.CODE_IDE, "Код IDE", Icons.Filled.Code),
+        Triple(AppTab.VECTOR_RAG, "RAG Память", Icons.Filled.FindInPage),
+        Triple(AppTab.AAS_SERVER, "API Сервер", Icons.Filled.Dns)
+    )
+
+    ScrollableTabRow(
+        selectedTabIndex = toolTabs.indexOfFirst { it.first == currentTab }.coerceAtLeast(0),
+        containerColor = DarkSurface1,
+        contentColor = CrimsonNeon,
+        edgePadding = 12.dp,
+        indicator = { tabPositions ->
+            val idx = toolTabs.indexOfFirst { it.first == currentTab }.coerceAtLeast(0)
+            if (idx < tabPositions.size) {
+                TabRowDefaults.SecondaryIndicator(
+                    modifier = Modifier.tabIndicatorOffset(tabPositions[idx]),
+                    color = CrimsonNeon
+                )
+            }
+        },
+        divider = {
+            HorizontalDivider(color = DarkBorder, thickness = 0.5.dp)
+        },
+        modifier = modifier.fillMaxWidth()
+    ) {
+        toolTabs.forEach { (tab, label, icon) ->
+            val isSelected = currentTab == tab
+            Tab(
+                selected = isSelected,
+                onClick = { onSelectTab(tab) },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (isSelected) CrimsonNeon else TextMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = label,
+                            color = if (isSelected) TextPrimary else TextSecondary,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            )
+        }
+    }
+}
+

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ai.engine.GenerationMetrics
 import com.example.privacy.PrivacyTelemetry
+import com.example.ui.theme.CrimsonNeon
 import com.example.ui.theme.CyanNeon
 import com.example.ui.theme.DarkBorder
 import com.example.ui.theme.DarkSurface1
@@ -80,21 +81,18 @@ fun TopBarAndSystemMonitor(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(
                                 Brush.linearGradient(
-                                    listOf(CyanNeon, PurpleNeon)
+                                    listOf(CrimsonNeon, com.example.ui.theme.AmberWarning)
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "AI",
-                            color = DarkVoid,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            fontFamily = FontFamily.Monospace
+                            text = "🦊",
+                            fontSize = 18.sp
                         )
                     }
 
@@ -103,7 +101,7 @@ fun TopBarAndSystemMonitor(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Aether AI",
+                                text = "PocketPal AI",
                                 color = TextPrimary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
@@ -112,13 +110,13 @@ fun TopBarAndSystemMonitor(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(CyanNeon.copy(alpha = 0.15f))
-                                    .border(0.5.dp, CyanNeon.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                    .background(CrimsonNeon.copy(alpha = 0.15f))
+                                    .border(0.5.dp, CrimsonNeon.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                                     .padding(horizontal = 5.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "ON-DEVICE",
-                                    color = CyanNeon,
+                                    color = CrimsonNeon,
                                     fontSize = 8.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
